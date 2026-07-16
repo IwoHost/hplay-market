@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Dice Roller</title>
+<style>
+  :root{ --bg:#101318; --panel:#1b1f26; --line:#2a2f3a; --text:#e8ebf0; --sub:#9aa4b1; --accent:#4a90e2; }
+  @media (prefers-color-scheme: light){
+    :root{ --bg:#f4f5f7; --panel:#ffffff; --line:#dfe2e6; --text:#1c1f24; --sub:#5a5e66; }
+  }
+  *{ margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; user-select:none; }
+  html,body{ height:100%; }
+  body{
+    font-family:-apple-system,"Helvetica Neue",Helvetica,Arial,sans-serif;
+    background:var(--bg); color:var(--text);
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:22px;
+    touch-action:manipulation;
+  }
+  .die{
+    width:38vw; max-width:150px; aspect-ratio:1;
+    background:var(--panel); border:1px solid var(--line); border-radius:20%;
+    display:flex; align-items:center; justify-content:center;
+    font-size:22vw; line-height:1; transition:transform .15s ease;
+  }
+  .die.rolling{ animation:spin .5s ease; }
+  @keyframes spin{ 0%{transform:rotate(0) scale(1);} 50%{transform:rotate(180deg) scale(1.08);} 100%{transform:rotate(360deg) scale(1);} }
+  .hint{ color:var(--sub); font-size:13px; font-weight:600; letter-spacing:.04em; text-transform:uppercase; }
+  .count{ color:var(--sub); font-size:12px; }
+  button{
+    border:none; background:var(--accent); color:#fff; font-weight:700; font-size:14px;
+    padding:10px 22px; border-radius:999px; cursor:pointer;
+  }
+</style>
+</head>
+<body>
+  <div class="die" id="die">⚀</div>
+  <div class="hint" id="hint">Tap the die to roll</div>
+  <button id="rollBtn" type="button">Roll</button>
+  <div class="count" id="count">Rolls: 0</div>
+
+<script>
+"use strict";
+const FACES = ['⚀','⚁','⚂','⚃','⚄','⚅'];
+const $die = document.getElementById('die');
+const $hint = document.getElementById('hint');
+const $count = document.getElementById('count');
+let rolls = 0;
+
+function roll(){
+  const n = Math.floor(Math.random()*6);
+  $die.classList.remove('rolling');
+  void $die.offsetWidth;
+  $die.classList.add('rolling');
+  $die.textContent = FACES[n];
+  rolls++;
+  $count.textContent = 'Rolls: ' + rolls;
+  $hint.textContent = 'You rolled a ' + (n+1);
+  if(navigator.vibrate) navigator.vibrate(10);
+}
+$die.addEventListener('click', roll);
+document.getElementById('rollBtn').addEventListener('click', roll);
+</script>
+</body>
+</html>
