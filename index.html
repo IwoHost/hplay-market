@@ -117,7 +117,8 @@
     script tags if you want a library). When someone installs it, Hplay downloads that file and runs
     it inside a sandboxed <code>&lt;iframe&gt;</code>. That sandbox means:</p>
     <ul>
-      <li>No access to Hplay's library, settings, or storage — it's fully isolated from the host app.</li>
+      <li>No direct access to Hplay's library, settings, or storage — it's isolated from the host app
+      except for the read-only bridge below.</li>
       <li>Its own <code>localStorage</code>/cookies are unavailable too, so don't rely on saving state
       between opens — treat every open as a fresh session.</li>
       <li>Network requests (e.g. <code>fetch</code> to an API you control) still work if you need one.</li>
@@ -125,6 +126,20 @@
     </ul>
     <p class="sub">Test it by just opening your .html file directly in a browser before publishing —
     if it works there, it'll work in the sandbox.</p>
+
+    <h3>Reading the library &amp; stats</h3>
+    <p>Apps can ask Hplay for a read-only snapshot of the song list and usage stats via
+    <code>postMessage</code> — there's no write path, so this can't touch playback or change anything:</p>
+    <pre>parent.postMessage({channel:'hplay', type:'getLibrary'}, '*');
+parent.postMessage({channel:'hplay', type:'getStats'}, '*');
+
+window.addEventListener('message', (e) => {
+  if (!e.data || e.data.channel !== 'hplay') return;
+  if (e.data.type === 'library') { /* e.data.data: [{title, artist, album}, ...] */ }
+  if (e.data.type === 'stats')   { /* e.data.data: {opens, playCount, playMs,
+    quizAnswered, quizCorrect, quizBest, songPlays, songCount} */ }
+});</pre>
+    <p class="sub">See the <b>Library &amp; Stats</b> app under the Apps tab for a working example.</p>
 
     <h3>Making a theme</h3>
     <p>A theme is a small set of colors, no file needed — it lives directly in

@@ -38,9 +38,29 @@ apps/           standalone HTML mini-apps referenced from manifest.json
 - `file` paths are relative to this site's root (or use a full `https://` URL to host elsewhere).
 - **apps**: `file` is a complete, standalone HTML file. It runs inside a sandboxed iframe in Hplay
   (`sandbox="allow-scripts allow-forms allow-pointer-lock"`, no `allow-same-origin`) — it can't touch
-  the user's library, storage, or the rest of the app.
+  the user's library, storage, or the rest of the app directly, except through the read-only bridge
+  below.
 - **themes**: `b` = body gradient stops (4 colors), `w`/`c` = click-wheel gradient stops (4 + 3
   colors). Optional `lab`/`labsh` style the wheel's text labels; both default sensibly if omitted.
+
+## Reading the library & stats from an app
+
+Apps can request a read-only snapshot of the song list and usage stats via `postMessage` — there's
+no write path back, so this can't touch playback, the library, or settings:
+
+```js
+parent.postMessage({channel:'hplay', type:'getLibrary'}, '*');
+parent.postMessage({channel:'hplay', type:'getStats'}, '*');
+
+window.addEventListener('message', (e) => {
+  if (!e.data || e.data.channel !== 'hplay') return;
+  if (e.data.type === 'library') { /* e.data.data: [{title, artist, album}, ...] */ }
+  if (e.data.type === 'stats')   { /* e.data.data: {opens, playCount, playMs,
+    quizAnswered, quizCorrect, quizBest, songPlays, songCount} */ }
+});
+```
+
+See `apps/library-stats.html` for a working example.
 
 ## Adding content
 

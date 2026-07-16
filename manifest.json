@@ -1,6 +1,7 @@
 {
   "apps": [
-    { "id": "dice", "name": "Dice Roller", "desc": "Tap to roll a die", "file": "apps/dice.html" }
+    { "id": "dice", "name": "Dice Roller", "desc": "Tap to roll a die", "file": "apps/dice.html" },
+    { "id": "library-stats", "name": "Library & Stats", "desc": "View your songs and usage stats", "file": "apps/library-stats.html" }
   ],
   "themes": []
 }

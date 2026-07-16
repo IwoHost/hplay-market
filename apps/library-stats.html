@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Library &amp; Stats</title>
+<style>
+  :root{ --bg:#fafbfc; --text:#15181d; --sub:#6b7078; --line:#e2e5e9; --accent:#0f4fa8; }
+  @media (prefers-color-scheme: dark){
+    :root{ --bg:#0b0d11; --text:#e8ebf0; --sub:#868c96; --line:#22262d; --accent:#5ea1f0; }
+  }
+  *{ margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  body{
+    font-family:-apple-system,"Helvetica Neue",Helvetica,Arial,sans-serif;
+    background:var(--bg); color:var(--text); line-height:1.4;
+    -webkit-user-select:none; user-select:none;
+  }
+  .wrap{ padding:18px 18px 40px; }
+  h1{ font-size:17px; font-weight:700; margin-bottom:14px; }
+  h2{ font-size:11px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--sub); margin:20px 0 6px; }
+
+  .stat{
+    display:flex; align-items:baseline; justify-content:space-between;
+    padding:9px 0; border-bottom:1px solid var(--line); font-size:14px;
+  }
+  .stat .v{ font-weight:700; }
+
+  .song{
+    display:flex; flex-direction:column; padding:9px 0; border-bottom:1px solid var(--line);
+  }
+  .song .t{ font-weight:600; font-size:14px; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+  .song .a{ color:var(--sub); font-size:12.5px; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+
+  .empty, .loading{ color:var(--sub); font-size:13px; padding:14px 0; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Library &amp; Stats</h1>
+
+  <h2>Stats</h2>
+  <div id="stats"><div class="loading">Loading…</div></div>
+
+  <h2>Songs</h2>
+  <div id="library"><div class="loading">Loading…</div></div>
+</div>
+
+<script>
+"use strict";
+function esc(s){ return String(s).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function fmtDur(ms){
+  const totalMin = Math.floor(Math.max(0,ms)/60000);
+  const h = Math.floor(totalMin/60), m = totalMin%60;
+  if(h>0) return h+'h '+m+'m';
+  if(m>0) return m+'m';
+  return Math.floor(Math.max(0,ms)/1000)+'s';
+}
+function statRow(label, value){
+  return `<div class="stat"><span>${esc(label)}</span><span class="v">${esc(value)}</span></div>`;
+}
+
+window.addEventListener('message', (e)=>{
+  if(!e.data || e.data.channel!=='hplay') return;
+  if(e.data.type==='stats') renderStats(e.data.data);
+  if(e.data.type==='library') renderLibrary(e.data.data);
+});
+
+function renderStats(s){
+  const acc = s.quizAnswered ? Math.round(100*s.quizCorrect/s.quizAnswered) : 0;
+  const entries = Object.entries(s.songPlays||{}).sort((a,b)=>b[1]-a[1]);
+  let html = '';
+  html += statRow('Times Opened', s.opens);
+  html += statRow('Songs in Library', s.songCount);
+  html += statRow('Tracks Played', s.playCount);
+  html += statRow('Listening Time', fmtDur(s.playMs));
+  html += statRow('Quiz Games Played', s.quizAnswered);
+  html += statRow('Quiz Accuracy', s.quizAnswered ? acc+'%' : '—');
+  html += statRow('Quiz Best Streak', s.quizBest);
+  if(entries.length) html += statRow('Favorite Song', entries[0][0]+' ('+entries[0][1]+')');
+  document.getElementById('stats').innerHTML = html;
+}
+
+function renderLibrary(songs){
+  document.getElementById('library').innerHTML = songs.length
+    ? songs.map(s=>`<div class="song"><span class="t">${esc(s.title)}</span><span class="a">${esc(s.artist)}${s.album?' — '+esc(s.album):''}</span></div>`).join('')
+    : '<div class="empty">No songs in the library yet.</div>';
+}
+
+parent.postMessage({channel:'hplay', type:'getStats'}, '*');
+parent.postMessage({channel:'hplay', type:'getLibrary'}, '*');
+</script>
+</body>
+</html>
