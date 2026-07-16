@@ -2,6 +2,5 @@
   "apps": [
     { "id": "dice", "name": "Dice Roller", "desc": "Tap to roll a die", "file": "apps/dice.html" }
   ],
-  "music": [],
   "themes": []
 }

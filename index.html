@@ -23,7 +23,7 @@
   header p{ color:var(--sub); font-size:14.5px; margin-top:8px; max-width:440px; }
 
   .urlrow{
-    margin:26px 0 46px; padding-top:18px; border-top:1px solid var(--line);
+    margin:26px 0 40px; padding-top:18px; border-top:1px solid var(--line);
     display:flex; align-items:baseline; justify-content:space-between; gap:16px; flex-wrap:wrap;
   }
   .urlrow code{
@@ -36,8 +36,16 @@
   }
   .urlrow button:active{ background:var(--mono-bg); }
 
-  section{ margin-bottom:38px; }
-  section h2{ font-size:12px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--sub); margin-bottom:4px; }
+  .tabs{ display:flex; gap:22px; border-bottom:1px solid var(--line); margin-bottom:4px; }
+  .tab{
+    background:none; border:none; cursor:pointer; padding:0 0 10px; font-size:13px; font-weight:700;
+    letter-spacing:.04em; text-transform:uppercase; color:var(--sub);
+    border-bottom:2px solid transparent; margin-bottom:-1px;
+  }
+  .tab.active{ color:var(--text); border-bottom-color:var(--accent); }
+
+  .panel{ display:none; }
+  .panel.active{ display:block; }
 
   .row{
     display:flex; align-items:baseline; justify-content:space-between; gap:14px;
@@ -50,7 +58,7 @@
   .swatch{ display:flex; gap:3px; }
   .swatch span{ width:14px; height:14px; border-radius:3px; display:block; border:1px solid rgba(0,0,0,.08); }
 
-  footer{ color:var(--sub); font-size:12.5px; margin-top:20px; }
+  footer{ color:var(--sub); font-size:12.5px; margin-top:34px; }
   footer a{ color:var(--accent); text-decoration:none; }
   footer a:hover{ text-decoration:underline; }
 </style>
@@ -59,7 +67,7 @@
 <div class="wrap">
   <header>
     <h1>Hplay Market</h1>
-    <p>Apps, music, and background themes for Hplay's Get More screen. Add something here and it shows up next time the app opens — no reinstall.</p>
+    <p>Apps and background themes for Hplay's Get More screen. Add something here and it shows up next time the app opens — no reinstall.</p>
   </header>
 
   <div class="urlrow">
@@ -67,20 +75,18 @@
     <button id="copyBtn" type="button">Copy URL</button>
   </div>
 
-  <section>
-    <h2>Apps</h2>
+  <div class="tabs">
+    <button class="tab active" data-tab="apps">Apps</button>
+    <button class="tab" data-tab="themes">Themes</button>
+  </div>
+
+  <div class="panel active" id="panel-apps">
     <div id="appsList"><div class="empty">Loading…</div></div>
-  </section>
+  </div>
 
-  <section>
-    <h2>Music</h2>
-    <div id="musicList"><div class="empty">Loading…</div></div>
-  </section>
-
-  <section>
-    <h2>Themes</h2>
+  <div class="panel" id="panel-themes">
     <div id="themesList"><div class="empty">Loading…</div></div>
-  </section>
+  </div>
 
   <footer>Paste the URL above into Hplay → Settings → Customize → Get More → Marketplace URL.
     Source on <a href="https://github.com/iwohost/hplay-market" target="_blank" rel="noopener">GitHub</a>.</footer>
@@ -97,21 +103,24 @@ document.getElementById('copyBtn').addEventListener('click', ()=>{
   });
 });
 
+document.querySelectorAll('.tab').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('active', b===btn));
+    document.querySelectorAll('.panel').forEach(p=>p.classList.toggle('active', p.id==='panel-'+btn.dataset.tab));
+  });
+});
+
 function esc(s){ return String(s).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 function row(name, desc){
   return `<div class="row"><span class="name">${esc(name)}</span><span class="desc">${esc(desc||'')}</span></div>`;
 }
 
 fetch('manifest.json', {cache:'no-store'}).then(r=>r.json()).then(m=>{
-  const apps = m.apps||[], music = m.music||[], themes = m.themes||[];
+  const apps = m.apps||[], themes = m.themes||[];
 
   document.getElementById('appsList').innerHTML = apps.length
     ? apps.map(a=>row(a.name||a.id, a.desc||'')).join('')
     : '<div class="empty">No apps yet — add one to manifest.json.</div>';
-
-  document.getElementById('musicList').innerHTML = music.length
-    ? music.map(s=>row(s.title||s.id, [s.artist,s.album].filter(Boolean).join(' — '))).join('')
-    : '<div class="empty">No music yet — add a track to manifest.json.</div>';
 
   document.getElementById('themesList').innerHTML = themes.length
     ? themes.map(t=>{
@@ -120,7 +129,7 @@ fetch('manifest.json', {cache:'no-store'}).then(r=>r.json()).then(m=>{
       }).join('')
     : '<div class="empty">No themes yet — add one to manifest.json.</div>';
 }).catch(()=>{
-  ['appsList','musicList','themesList'].forEach(id=>{
+  ['appsList','themesList'].forEach(id=>{
     document.getElementById(id).innerHTML = '<div class="empty">Couldn’t load manifest.json.</div>';
   });
 });

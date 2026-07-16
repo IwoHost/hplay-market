@@ -1,7 +1,7 @@
 # Hplay Market
 
 The marketplace website for [Hplay](https://github.com/iwohost/hplay) — the "Get More" screen in the
-app reads `manifest.json` from this site to list downloadable apps, music, and background themes.
+app reads `manifest.json` from this site to list downloadable apps and background themes.
 The app itself never needs updating for any of this; add content here and it shows up next time
 someone opens Get More.
 
@@ -14,7 +14,6 @@ Point Hplay's Settings → Get More → Marketplace URL at this site's published
 index.html      human-facing store homepage (lists what manifest.json has)
 manifest.json   the file Hplay actually fetches
 apps/           standalone HTML mini-apps referenced from manifest.json
-music/          audio files referenced from manifest.json
 ```
 
 ## manifest.json schema
@@ -23,9 +22,6 @@ music/          audio files referenced from manifest.json
 {
   "apps": [
     { "id": "tuner", "name": "Tuner", "desc": "Guitar tuner", "file": "apps/tuner.html" }
-  ],
-  "music": [
-    { "title": "Song Name", "artist": "Artist", "album": "Album", "file": "music/song.mp3" }
   ],
   "themes": [
     {
@@ -43,12 +39,14 @@ music/          audio files referenced from manifest.json
 - **apps**: `file` is a complete, standalone HTML file. It runs inside a sandboxed iframe in Hplay
   (`sandbox="allow-scripts allow-forms allow-pointer-lock"`, no `allow-same-origin`) — it can't touch
   the user's library, storage, or the rest of the app.
-- **music**: downloaded straight into the user's library, same as adding a local file.
 - **themes**: `b` = body gradient stops (4 colors), `w`/`c` = click-wheel gradient stops (4 + 3
   colors). Optional `lab`/`labsh` style the wheel's text labels; both default sensibly if omitted.
 
 ## Adding content
 
-1. Drop the file in `apps/` or `music/`.
+1. Drop the app file in `apps/` (or add a theme entry directly to `manifest.json`).
 2. Add an entry to `manifest.json` pointing at it.
 3. Commit and push (or edit directly on GitHub) — no app update needed.
+
+Note: there's intentionally no music category here — distributing audio files needs rights to the
+music, which this site doesn't have.
