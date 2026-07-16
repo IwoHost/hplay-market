@@ -57,6 +57,7 @@
 
   .swatch{ display:flex; gap:3px; }
   .swatch span{ width:14px; height:14px; border-radius:3px; display:block; border:1px solid rgba(0,0,0,.08); }
+  .row .thumb{ width:26px; height:26px; object-fit:contain; }
 
   footer{ color:var(--sub); font-size:12.5px; margin-top:34px; }
   footer a{ color:var(--accent); text-decoration:none; }
@@ -83,7 +84,7 @@
 <div class="wrap">
   <header>
     <h1>Hplay Market</h1>
-    <p>Apps and background themes for Hplay's Get More screen. Add something here and it shows up next time the app opens — no reinstall.</p>
+    <p>Apps, background themes, and decals for Hplay's Get More screen. Add something here and it shows up next time the app opens — no reinstall.</p>
   </header>
 
   <div class="urlrow">
@@ -94,6 +95,7 @@
   <div class="tabs">
     <button class="tab active" data-tab="apps">Apps</button>
     <button class="tab" data-tab="themes">Themes</button>
+    <button class="tab" data-tab="decals">Decals</button>
     <button class="tab" data-tab="about">About</button>
   </div>
 
@@ -103,6 +105,10 @@
 
   <div class="panel" id="panel-themes">
     <div id="themesList"><div class="empty">Loading…</div></div>
+  </div>
+
+  <div class="panel" id="panel-decals">
+    <div id="decalsList"><div class="empty">Loading…</div></div>
   </div>
 
   <div class="panel doc" id="panel-about">
@@ -154,10 +160,19 @@ window.addEventListener('message', (e) => {
     color the click wheel. Optional <code>lab</code>/<code>labsh</code> set the wheel's label text
     and shadow color — leave them out and sensible defaults are used.</p>
 
+    <h3>Making a decal</h3>
+    <p>A decal is a plain image (PNG or SVG) placed on the aluminum body — no code involved, so it
+    can't do anything but sit there:</p>
+    <pre>{ "id": "star", "name": "Star", "file": "decals/star.svg", "x": 80, "y": 45, "w": 12, "rot": -10 }</pre>
+    <p><code>x</code>/<code>y</code> are position as a percent of the body (0–100), <code>w</code> is
+    width as a percent of screen width, <code>rot</code> is rotation in degrees. Decals always render
+    behind the screen and click wheel, so even a bad position can't cover a control.</p>
+
     <h3>Publishing</h3>
-    <p>Drop your app file in <code>apps/</code>, add an entry to <code>manifest.json</code> pointing
-    at it (or a theme entry directly), then commit and push — or just edit the files on GitHub in the
-    browser. Full schema reference is in the repo's <code>README.md</code>.</p>
+    <p>Drop your file in <code>apps/</code> or <code>decals/</code>, add an entry to
+    <code>manifest.json</code> pointing at it (or a theme entry directly), then commit and push — or
+    just edit the files on GitHub in the browser. Full schema reference is in the repo's
+    <code>README.md</code>.</p>
   </div>
 
   <footer>Paste the URL above into Hplay → Settings → Customize → Get More → Marketplace URL.
@@ -188,7 +203,7 @@ function row(name, desc){
 }
 
 fetch('manifest.json', {cache:'no-store'}).then(r=>r.json()).then(m=>{
-  const apps = m.apps||[], themes = m.themes||[];
+  const apps = m.apps||[], themes = m.themes||[], decals = m.decals||[];
 
   document.getElementById('appsList').innerHTML = apps.length
     ? apps.map(a=>row(a.name||a.id, a.desc||'')).join('')
@@ -200,8 +215,12 @@ fetch('manifest.json', {cache:'no-store'}).then(r=>r.json()).then(m=>{
         return `<div class="row"><span class="name">${esc(t.name||t.id)}</span><span class="swatch">${sw}</span></div>`;
       }).join('')
     : '<div class="empty">No themes yet — add one to manifest.json.</div>';
+
+  document.getElementById('decalsList').innerHTML = decals.length
+    ? decals.map(d=>`<div class="row"><span class="name">${esc(d.name||d.id)}</span><img class="thumb" src="${esc(d.file)}" alt=""></div>`).join('')
+    : '<div class="empty">No decals yet — add one to manifest.json.</div>';
 }).catch(()=>{
-  ['appsList','themesList'].forEach(id=>{
+  ['appsList','themesList','decalsList'].forEach(id=>{
     document.getElementById(id).innerHTML = '<div class="empty">Couldn’t load manifest.json.</div>';
   });
 });

@@ -1,7 +1,7 @@
 # Hplay Market
 
 The marketplace website for [Hplay](https://github.com/iwohost/hplay) — the "Get More" screen in the
-app reads `manifest.json` from this site to list downloadable apps and background themes.
+app reads `manifest.json` from this site to list downloadable apps, background themes, and decals.
 The app itself never needs updating for any of this; add content here and it shows up next time
 someone opens Get More.
 
@@ -14,6 +14,7 @@ Point Hplay's Settings → Get More → Marketplace URL at this site's published
 index.html      human-facing store homepage (lists what manifest.json has)
 manifest.json   the file Hplay actually fetches
 apps/           standalone HTML mini-apps referenced from manifest.json
+decals/         images referenced from manifest.json's decals list
 ```
 
 ## manifest.json schema
@@ -31,6 +32,9 @@ apps/           standalone HTML mini-apps referenced from manifest.json
       "c": ["#hex1", "#hex2", "#hex3"],
       "lab": "#hex", "labsh": "rgba(0,0,0,.6)"
     }
+  ],
+  "decals": [
+    { "id": "star", "name": "Star", "file": "decals/star.svg", "x": 80, "y": 45, "w": 12, "rot": -10 }
   ]
 }
 ```
@@ -42,6 +46,10 @@ apps/           standalone HTML mini-apps referenced from manifest.json
   below.
 - **themes**: `b` = body gradient stops (4 colors), `w`/`c` = click-wheel gradient stops (4 + 3
   colors). Optional `lab`/`labsh` style the wheel's text labels; both default sensibly if omitted.
+- **decals**: `file` is a plain PNG/SVG image (no code, so no sandboxing needed). `x`/`y` are position
+  as a percent of the body (0–100, clamped), `w` is width as a percent of screen width (clamped
+  4–40), `rot` is rotation in degrees (clamped ±180). Decals render behind the screen and click wheel,
+  so they can never cover a control regardless of position.
 
 ## Reading the library & stats from an app
 
@@ -64,7 +72,7 @@ See `apps/library-stats.html` for a working example.
 
 ## Adding content
 
-1. Drop the app file in `apps/` (or add a theme entry directly to `manifest.json`).
+1. Drop the file in `apps/` or `decals/` (or add a theme entry directly to `manifest.json`).
 2. Add an entry to `manifest.json` pointing at it.
 3. Commit and push (or edit directly on GitHub) — no app update needed.
 

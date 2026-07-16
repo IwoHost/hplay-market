@@ -3,5 +3,10 @@
     { "id": "dice", "name": "Dice Roller", "desc": "Tap to roll a die", "file": "apps/dice.html" },
     { "id": "library-stats", "name": "Library & Stats", "desc": "View your songs and usage stats", "file": "apps/library-stats.html" }
   ],
-  "themes": []
+  "themes": [],
+  "decals": [
+    { "id": "star", "name": "Star", "file": "decals/star.svg", "x": 80, "y": 45, "w": 12, "rot": -10 },
+    { "id": "heart", "name": "Heart", "file": "decals/heart.svg", "x": 18, "y": 46, "w": 11, "rot": 8 },
+    { "id": "note", "name": "Note", "file": "decals/note.svg", "x": 50, "y": 47, "w": 10, "rot": 0 }
+  ]
 }
