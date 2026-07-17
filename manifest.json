@@ -30,11 +30,22 @@
       "b": ["#ffbf6b", "#ff9159", "#f0616b", "#c23f66"],
       "w": ["#f2a862", "#e87f57", "#d5586a", "#a83a5c"],
       "c": ["#f0a463", "#e07f5c", "#c85f66"],
-      "lab": "#fff6ee", "labsh": "rgba(60,10,20,.6)" }
+      "lab": "#fff6ee", "labsh": "rgba(60,10,20,.6)" },
+    { "id": "tf2red", "name": "TF2 RED",
+      "b": ["#e8735a", "#c9503a", "#9c3323", "#6e2015"],
+      "w": ["#c94a36", "#a83a28", "#87301f", "#5f2015"],
+      "c": ["#b8402e", "#973122", "#75251a"],
+      "lab": "#fff2ea", "labsh": "rgba(50,10,5,.6)" },
+    { "id": "tf2blu", "name": "TF2 BLU",
+      "b": ["#6fa8c9", "#4a83ac", "#33607f", "#1f3f57"],
+      "w": ["#3f74a3", "#305f89", "#264c6e", "#182f47"],
+      "c": ["#3868a0", "#2c5486", "#20405f"],
+      "lab": "#eef7ff", "labsh": "rgba(0,20,45,.6)" }
   ],
   "decals": [
     { "id": "star", "name": "Star", "file": "decals/star.svg", "x": 80, "y": 45, "w": 12, "rot": -10 },
     { "id": "heart", "name": "Heart", "file": "decals/heart.svg", "x": 18, "y": 46, "w": 11, "rot": 8 },
-    { "id": "note", "name": "Note", "file": "decals/note.svg", "x": 50, "y": 47, "w": 10, "rot": 0 }
+    { "id": "note", "name": "Note", "file": "decals/note.svg", "x": 50, "y": 47, "w": 10, "rot": 0 },
+    { "id": "gearbadge", "name": "Mercenary Gear", "file": "decals/gearbadge.svg", "x": 50, "y": 15, "w": 13, "rot": -6 }
   ]
 }
