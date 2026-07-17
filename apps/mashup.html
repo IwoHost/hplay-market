@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Mashup</title>
+<style>
+  :root{ --bg:#fafbfc; --text:#15181d; --sub:#6b7078; --line:#e2e5e9; --accent:#0f4fa8; --mono-bg:#eef1f5; }
+  @media (prefers-color-scheme: dark){
+    :root{ --bg:#0b0d11; --text:#e8ebf0; --sub:#868c96; --line:#22262d; --accent:#5ea1f0; --mono-bg:#171a20; }
+  }
+  *{ margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  body{
+    font-family:-apple-system,"Helvetica Neue",Helvetica,Arial,sans-serif;
+    background:var(--bg); color:var(--text); line-height:1.4; -webkit-user-select:none; user-select:none;
+  }
+  .wrap{ padding:18px 18px 40px; }
+  h1{ font-size:17px; font-weight:700; margin-bottom:4px; }
+  p.sub{ color:var(--sub); font-size:13px; margin-bottom:18px; }
+
+  .ears{ display:flex; gap:10px; margin-bottom:16px; }
+  .earcard{
+    flex:1; border:1px solid var(--line); border-radius:10px; padding:12px;
+    display:flex; flex-direction:column; gap:6px; min-height:70px;
+  }
+  .earcard .lab{ font-size:11px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--sub); }
+  .earcard .song{ font-size:13.5px; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .earcard button{
+    margin-top:auto; border:1px solid var(--line); background:var(--mono-bg); color:var(--text);
+    font-size:12px; font-weight:600; padding:6px 0; border-radius:7px;
+  }
+
+  .playbar{ display:flex; gap:10px; margin-bottom:18px; }
+  .playbar button{
+    flex:1; border:none; border-radius:999px; padding:11px 0; font-size:14px; font-weight:700; color:#fff;
+    background:var(--accent);
+  }
+  .playbar button:disabled{ opacity:.4; }
+  .playbar button.stop{ background:#c0392b; }
+
+  h2{ font-size:11px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--sub); margin:14px 0 6px; }
+  .row{ display:flex; justify-content:space-between; padding:9px 0; border-bottom:1px solid var(--line); font-size:13.5px; }
+  .row .a{ color:var(--sub); font-size:12px; }
+  .empty, .status{ color:var(--sub); font-size:13px; padding:10px 0; }
+
+  #picker{ display:none; }
+  #picker.open{ display:block; }
+  #main.hidden{ display:none; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div id="main">
+    <h1>Mashup</h1>
+    <p class="sub">One song per ear. Pick two, then play them panned hard left / hard right.</p>
+
+    <div class="ears">
+      <div class="earcard">
+        <span class="lab">Left Ear</span>
+        <span class="song" id="leftName">None picked</span>
+        <button id="pickLeft" type="button">Pick Song</button>
+      </div>
+      <div class="earcard">
+        <span class="lab">Right Ear</span>
+        <span class="song" id="rightName">None picked</span>
+        <button id="pickRight" type="button">Pick Song</button>
+      </div>
+    </div>
+
+    <div class="playbar">
+      <button id="playBtn" type="button" disabled>Play Mashup</button>
+      <button id="stopBtn" type="button" class="stop" disabled>Stop</button>
+    </div>
+
+    <div class="status" id="status">Requesting your library…</div>
+  </div>
+
+  <div id="picker">
+    <h2 id="pickerTitle">Pick a song</h2>
+    <div id="pickerList"></div>
+    <div class="playbar"><button id="pickerCancel" type="button">Cancel</button></div>
+  </div>
+</div>
+
+<script>
+"use strict";
+function esc(s){ return String(s).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+let library = [];
+const side = { left: { id:null, blob:null, url:null }, right: { id:null, blob:null, url:null } };
+let pickingSide = null;
+let ctx = null, els = { left:null, right:null }, srcs = { left:null, right:null }, playing = false;
+
+function setStatus(t){ document.getElementById('status').textContent = t; }
+
+window.addEventListener('message', (e)=>{
+  if(!e.data || e.data.channel!=='hplay') return;
+  if(e.data.type==='library'){
+    library = e.data.data;
+    setStatus(library.length ? ('Ready — ' + library.length + ' songs available.') : 'No songs in your library yet.');
+  } else if(e.data.type==='audio'){
+    const s = side.left.id===e.data.id && !side.left.blob ? 'left' : (side.right.id===e.data.id ? 'right' : null);
+    if(!s) return;
+    side[s].blob = e.data.blob;
+    side[s].url = URL.createObjectURL(e.data.blob);
+    maybeEnablePlay();
+    setStatus('Got audio for ' + s + ' ear.');
+  } else if(e.data.type==='mediaDenied'){
+    setStatus('Audio access denied — allow it in Hplay to use Mashup.');
+  } else if(e.data.type==='mediaError'){
+    setStatus('Could not load that song (' + (e.data.reason||'error') + ').');
+  }
+});
+parent.postMessage({channel:'hplay', type:'getLibrary'}, '*');
+
+function maybeEnablePlay(){
+  document.getElementById('playBtn').disabled = !(side.left.blob && side.right.blob);
+}
+
+function openPicker(s){
+  pickingSide = s;
+  document.getElementById('pickerTitle').textContent = 'Pick a song — ' + (s==='left'?'Left':'Right') + ' ear';
+  document.getElementById('pickerList').innerHTML = library.length
+    ? library.map(sg=>`<div class="row" data-id="${sg.id}"><span>${esc(sg.title)}</span><span class="a">${esc(sg.artist||'')}</span></div>`).join('')
+    : '<div class="empty">No songs available.</div>';
+  document.getElementById('main').classList.add('hidden');
+  document.getElementById('picker').classList.add('open');
+}
+function closePicker(){
+  document.getElementById('picker').classList.remove('open');
+  document.getElementById('main').classList.remove('hidden');
+}
+document.getElementById('pickLeft').addEventListener('click', ()=>openPicker('left'));
+document.getElementById('pickRight').addEventListener('click', ()=>openPicker('right'));
+document.getElementById('pickerCancel').addEventListener('click', closePicker);
+document.getElementById('pickerList').addEventListener('click', (e)=>{
+  const row = e.target.closest('.row[data-id]'); if(!row) return;
+  const id = Number(row.dataset.id);
+  const sg = library.find(s=>s.id===id); if(!sg) return;
+  side[pickingSide].id = id; side[pickingSide].blob = null; side[pickingSide].url = null;
+  document.getElementById(pickingSide+'Name').textContent = sg.title;
+  maybeEnablePlay();
+  setStatus('Loading audio for ' + pickingSide + ' ear…');
+  parent.postMessage({channel:'hplay', type:'getAudio', id}, '*');
+  closePicker();
+});
+
+function ensureCtx(){ if(!ctx) ctx = new (window.AudioContext||window.webkitAudioContext)(); }
+document.getElementById('playBtn').addEventListener('click', ()=>{
+  ensureCtx();
+  ['left','right'].forEach(s=>{
+    if(els[s]){ try{ els[s].pause(); }catch(e){} }
+    const audioEl = new Audio(side[s].url);
+    audioEl.loop = true;
+    els[s] = audioEl;
+    const src = ctx.createMediaElementSource(audioEl);
+    const pan = ctx.createStereoPanner();
+    pan.pan.value = s==='left' ? -1 : 1;
+    src.connect(pan).connect(ctx.destination);
+    audioEl.play().catch(()=>{});
+  });
+  playing = true;
+  document.getElementById('stopBtn').disabled = false;
+  setStatus('Playing — left in your left ear, right in your right ear.');
+});
+document.getElementById('stopBtn').addEventListener('click', ()=>{
+  ['left','right'].forEach(s=>{ if(els[s]){ try{ els[s].pause(); }catch(e){} } });
+  playing = false;
+  document.getElementById('stopBtn').disabled = true;
+  setStatus('Stopped.');
+});
+</script>
+</body>
+</html>

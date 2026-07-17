@@ -1,7 +1,8 @@
 {
   "apps": [
     { "id": "dice", "name": "Dice Roller", "desc": "Tap to roll a die", "file": "apps/dice.html" },
-    { "id": "library-stats", "name": "Library & Stats", "desc": "View your songs and usage stats", "file": "apps/library-stats.html" }
+    { "id": "library-stats", "name": "Library & Stats", "desc": "View your songs and usage stats", "file": "apps/library-stats.html" },
+    { "id": "mashup", "name": "Mashup", "desc": "One song per ear, panned left/right", "file": "apps/mashup.html" }
   ],
   "themes": [],
   "decals": [
