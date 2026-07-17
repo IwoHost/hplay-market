@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>iBrick</title>
+<style>
+  :root{ --bg:#101318; --text:#e8ebf0; --sub:#9aa4b1; }
+  @media (prefers-color-scheme: light){ :root{ --bg:#f4f5f7; --text:#1c1f24; --sub:#5a5e66; } }
+  *{ margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; user-select:none; }
+  html,body{ height:100%; overflow:hidden; touch-action:none; }
+  body{
+    font-family:-apple-system,"Helvetica Neue",Helvetica,Arial,sans-serif;
+    background:var(--bg); color:var(--text);
+    display:flex; flex-direction:column; align-items:center;
+  }
+  .hud{ display:flex; justify-content:space-between; width:100%; padding:10px 16px; font-size:13px; font-weight:700; color:var(--sub); }
+  canvas{ display:block; touch-action:none; }
+  .msg{
+    position:fixed; left:50%; top:45%; transform:translate(-50%,-50%);
+    text-align:center; pointer-events:none;
+  }
+  .msg .big{ font-size:20px; font-weight:800; margin-bottom:6px; }
+  .msg .small{ font-size:13px; color:var(--sub); }
+</style>
+</head>
+<body>
+  <div class="hud">
+    <span id="score">Score: 0</span>
+    <span id="lives">Lives: 3</span>
+  </div>
+  <canvas id="c"></canvas>
+  <div class="msg" id="msg"></div>
+
+<script>
+"use strict";
+const $c = document.getElementById('c');
+const ctx = $c.getContext('2d');
+const $score = document.getElementById('score');
+const $lives = document.getElementById('lives');
+const $msg = document.getElementById('msg');
+
+let W = 0, H = 0;
+function resize(){
+  const DPR = window.devicePixelRatio || 1;
+  W = window.innerWidth; H = window.innerHeight - 40;
+  $c.width = W * DPR; $c.height = H * DPR;
+  $c.style.width = W + 'px'; $c.style.height = H + 'px';
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  layoutBricks();
+}
+window.addEventListener('resize', resize);
+
+const ROWS = 5, COLS = 7;
+let bricks = [];
+const rowColors = ['#e05a5a', '#e0a05a', '#e0d85a', '#7ac95a', '#5a9ce0'];
+function layoutBricks(){
+  bricks = [];
+  const pad = 4, top = 16, bw = (W - pad*(COLS+1)) / COLS, bh = 16;
+  for(let r=0; r<ROWS; r++){
+    for(let c=0; c<COLS; c++){
+      bricks.push({ x: pad+c*(bw+pad), y: top+r*(bh+pad), w:bw, h:bh, alive:true, color: rowColors[r%rowColors.length] });
+    }
+  }
+}
+
+const PADDLE_W = 70, PADDLE_H = 10;
+let paddleX = 0, ball = null, running = false, lives = 3, score = 0, over = false;
+
+function resetBall(){
+  ball = { x: W/2, y: H-60, vx: 2.6*(Math.random()<0.5?-1:1), vy:-3.4, r:5 };
+}
+function initGame(){
+  paddleX = W/2 - PADDLE_W/2;
+  lives = 3; score = 0; over = false; running = false;
+  layoutBricks();
+  resetBall();
+  updateHud();
+  showMsg('iBrick', 'Turn the wheel to move, press center to launch');
+}
+function updateHud(){ $score.textContent = 'Score: '+score; $lives.textContent = 'Lives: '+lives; }
+function showMsg(big, small){ $msg.innerHTML = '<div class="big">'+big+'</div><div class="small">'+(small||'')+'</div>'; }
+function hideMsg(){ $msg.innerHTML = ''; }
+
+function movePaddle(dx){
+  paddleX = Math.max(0, Math.min(W-PADDLE_W, paddleX+dx));
+}
+function launch(){
+  if(over){ initGame(); return; }
+  if(!running){ running = true; hideMsg(); }
+}
+
+function step(){
+  if(running && !over){
+    ball.x += ball.vx; ball.y += ball.vy;
+    if(ball.x < ball.r){ ball.x = ball.r; ball.vx *= -1; }
+    if(ball.x > W-ball.r){ ball.x = W-ball.r; ball.vx *= -1; }
+    if(ball.y < ball.r){ ball.y = ball.r; ball.vy *= -1; }
+    if(ball.y+ball.r >= H-PADDLE_H-6 && ball.y+ball.r <= H-6 &&
+       ball.x >= paddleX && ball.x <= paddleX+PADDLE_W && ball.vy > 0){
+      const hit = (ball.x - (paddleX+PADDLE_W/2)) / (PADDLE_W/2);
+      ball.vy = -Math.abs(ball.vy);
+      ball.vx = hit * 4;
+    }
+    for(const b of bricks){
+      if(!b.alive) continue;
+      if(ball.x+ball.r > b.x && ball.x-ball.r < b.x+b.w && ball.y+ball.r > b.y && ball.y-ball.r < b.y+b.h){
+        b.alive = false; score += 10; updateHud();
+        ball.vy *= -1;
+        break;
+      }
+    }
+    if(ball.y > H+30){
+      lives--; updateHud();
+      if(lives <= 0){
+        over = true; running = false;
+        showMsg('Game Over', 'Score '+score+' — press center to retry');
+      } else {
+        running = false;
+        resetBall();
+        showMsg('Try Again', 'Press center to launch');
+      }
+    }
+    if(bricks.every(b=>!b.alive)){
+      over = true; running = false;
+      showMsg('You Win!', 'Score '+score+' — press center to play again');
+    }
+  }
+  draw();
+  requestAnimationFrame(step);
+}
+function draw(){
+  ctx.clearRect(0, 0, W, H);
+  for(const b of bricks){ if(!b.alive) continue; ctx.fillStyle = b.color; ctx.fillRect(b.x, b.y, b.w, b.h); }
+  ctx.fillStyle = getComputedStyle(document.body).color;
+  ctx.fillRect(paddleX, H-PADDLE_H-6, PADDLE_W, PADDLE_H);
+  if(ball){ ctx.beginPath(); ctx.arc(ball.x, ball.y, ball.r, 0, Math.PI*2); ctx.fill(); }
+}
+
+let dragging = false, lastX = 0;
+$c.addEventListener('pointerdown', e=>{ dragging = true; lastX = e.clientX; launch(); });
+$c.addEventListener('pointermove', e=>{ if(!dragging) return; movePaddle(e.clientX-lastX); lastX = e.clientX; });
+$c.addEventListener('pointerup', ()=>{ dragging = false; });
+$c.addEventListener('pointercancel', ()=>{ dragging = false; });
+
+window.addEventListener('message', (e)=>{
+  if(!e.data || e.data.channel!=='hplay') return;
+  if(e.data.type==='wheel') movePaddle(e.data.dir*(e.data.mult||1)*7);
+  if(e.data.type==='select') launch();
+});
+
+resize();
+initGame();
+requestAnimationFrame(step);
+</script>
+</body>
+</html>

@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Tic-Tac-Toe</title>
+<style>
+  :root{ --bg:#101318; --text:#e8ebf0; --sub:#9aa4b1; --line:#2a2f3a; --accent:#4a90e2; }
+  @media (prefers-color-scheme: light){ :root{ --bg:#f4f5f7; --text:#1c1f24; --sub:#5a5e66; --line:#dfe2e6; } }
+  *{ margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; user-select:none; }
+  html,body{ height:100%; }
+  body{
+    font-family:-apple-system,"Helvetica Neue",Helvetica,Arial,sans-serif;
+    background:var(--bg); color:var(--text);
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:16px;
+    touch-action:manipulation;
+  }
+  .turn{ font-size:14px; font-weight:700; color:var(--sub); min-height:18px; }
+  .board{
+    display:grid; grid-template-columns:repeat(3,1fr); gap:6px;
+    width:70vw; max-width:280px; aspect-ratio:1;
+  }
+  .cell{
+    background:var(--line); border-radius:10px;
+    display:flex; align-items:center; justify-content:center;
+    font-size:min(9vw,38px); font-weight:800;
+    outline:2px solid transparent; outline-offset:-2px;
+  }
+  .cell.focus{ outline-color:var(--accent); }
+  .cell.x{ color:#4a90e2; }
+  .cell.o{ color:#e05a5a; }
+  .status{ font-size:14px; font-weight:700; min-height:20px; }
+  .reset{
+    border:none; background:var(--accent); color:#fff; font-weight:700; font-size:13px;
+    padding:8px 20px; border-radius:999px;
+  }
+</style>
+</head>
+<body>
+  <div class="turn" id="turn"></div>
+  <div class="board" id="board"></div>
+  <div class="status" id="status"></div>
+  <button class="reset" id="reset" type="button">Restart</button>
+
+<script>
+"use strict";
+const $board = document.getElementById('board');
+const $turn = document.getElementById('turn');
+const $status = document.getElementById('status');
+let cells, turn, focus, over;
+
+const LINES = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+
+function newGame(){
+  cells = Array(9).fill(null);
+  turn = 'X';
+  focus = 4;
+  over = false;
+  $status.textContent = '';
+  render();
+}
+function checkWin(){
+  for(const [a,b,c] of LINES){ if(cells[a] && cells[a]===cells[b] && cells[b]===cells[c]) return cells[a]; }
+  if(cells.every(v=>v)) return 'draw';
+  return null;
+}
+function render(){
+  $board.innerHTML = cells.map((v,i)=>
+    '<div class="cell '+(v==='X'?'x':v==='O'?'o':'')+' '+(i===focus?'focus':'')+'" data-i="'+i+'">'+(v||'')+'</div>'
+  ).join('');
+  $turn.textContent = over ? '' : "Player " + turn + "'s turn";
+}
+function place(i){
+  if(over || cells[i]) return;
+  cells[i] = turn;
+  const w = checkWin();
+  if(w){
+    over = true;
+    $status.textContent = w==='draw' ? 'Draw!' : ('Player ' + w + ' wins!');
+  } else {
+    turn = turn==='X' ? 'O' : 'X';
+  }
+  render();
+}
+$board.addEventListener('click', e=>{
+  const cell = e.target.closest('.cell'); if(!cell) return;
+  focus = Number(cell.dataset.i);
+  place(focus);
+});
+document.getElementById('reset').addEventListener('click', newGame);
+
+window.addEventListener('message', (e)=>{
+  if(!e.data || e.data.channel!=='hplay') return;
+  if(e.data.type==='wheel'){
+    focus = ((focus + e.data.dir*(e.data.mult||1)) % 9 + 9) % 9;
+    render();
+  }
+  if(e.data.type==='select') place(focus);
+});
+
+newGame();
+</script>
+</body>
+</html>
