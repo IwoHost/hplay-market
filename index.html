@@ -147,6 +147,22 @@ window.addEventListener('message', (e) => {
 });</pre>
     <p class="sub">See the <b>Library &amp; Stats</b> app under the Apps tab for a working example.</p>
 
+    <h3>Click wheel input</h3>
+    <p>Hplay is a click-wheel device — people navigate everything else with the wheel and center
+    button, not touch. Design your app around that instead of forcing a switch to tapping the screen.
+    Hplay forwards wheel turns and center-button presses into your app:</p>
+    <pre>window.addEventListener('message', (e) => {
+  if (!e.data || e.data.channel !== 'hplay') return;
+  if (e.data.type === 'wheel')  { /* e.data.dir: -1 or 1, e.data.mult: higher on a fast spin */ }
+  if (e.data.type === 'select') { /* center button pressed */ }
+});</pre>
+    <p>One main action → let <code>select</code> trigger it (<b>Dice Roller</b>). A scrollable
+    read-only view → let <code>wheel</code> scroll the page (<b>Library &amp; Stats</b>). Multiple
+    things to choose between → track a focused index, move it on <code>wheel</code>, highlight it,
+    and call <code>.click()</code> on <code>select</code> (<b>Mashup</b>, <b>Metronome</b>). The
+    hardware Menu button always exits back to Get More and is never forwarded, so you don't need to
+    handle it. Keep touch working too — it's how you'll test the app in a plain browser.</p>
+
     <h3>Making a theme</h3>
     <p>A theme is a small set of colors, no file needed — it lives directly in
     <code>manifest.json</code>:</p>

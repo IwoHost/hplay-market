@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Metronome</title>
+<style>
+  :root{ --bg:#fafbfc; --text:#15181d; --sub:#6b7078; --line:#e2e5e9; --accent:#0f4fa8; --mono-bg:#eef1f5; }
+  @media (prefers-color-scheme: dark){
+    :root{ --bg:#0b0d11; --text:#e8ebf0; --sub:#868c96; --line:#22262d; --accent:#5ea1f0; --mono-bg:#171a20; }
+  }
+  *{ margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; user-select:none; }
+  html,body{ height:100%; }
+  body{
+    font-family:-apple-system,"Helvetica Neue",Helvetica,Arial,sans-serif;
+    background:var(--bg); color:var(--text); line-height:1.4;
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:18px;
+    padding:24px;
+  }
+  h1{ font-size:17px; font-weight:700; }
+  p.sub{ color:var(--sub); font-size:13px; text-align:center; max-width:260px; margin-top:-8px; }
+
+  .bpmBox{ text-align:center; }
+  .bpm{ font-size:64px; font-weight:800; font-variant-numeric:tabular-nums; letter-spacing:-.02em; }
+  .bpmLab{ color:var(--sub); font-size:12px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; }
+
+  .dot{
+    width:16px; height:16px; border-radius:50%; background:var(--line); transition:background .05s;
+  }
+  .dot.pulse{ background:var(--accent); animation:fade .3s ease-out; }
+  @keyframes fade{ 0%{ transform:scale(1.4); } 100%{ transform:scale(1); } }
+
+  .controls{ display:flex; gap:10px; align-items:center; }
+  .controls button{
+    border:1px solid var(--line); background:var(--mono-bg); color:var(--text);
+    font-size:20px; font-weight:700; width:46px; height:46px; border-radius:50%;
+  }
+  #toggle{
+    border:none; color:#fff; background:var(--accent); font-size:14px; font-weight:700;
+    width:auto; height:46px; padding:0 22px; border-radius:999px;
+  }
+  #toggle.on{ background:#c0392b; }
+
+  .hint{ color:var(--sub); font-size:11.5px; text-align:center; max-width:240px; }
+  .wnav{ outline:2px solid var(--accent); outline-offset:2px; }
+</style>
+</head>
+<body>
+  <h1>Metronome</h1>
+  <p class="sub">Turn the click wheel to set the tempo. Press the center button to start or stop.</p>
+
+  <div class="bpmBox">
+    <div class="bpm" id="bpmVal">120</div>
+    <div class="bpmLab">BPM</div>
+  </div>
+
+  <div class="dot" id="dot"></div>
+
+  <div class="controls">
+    <button id="down" type="button">−</button>
+    <button id="toggle" type="button">Start</button>
+    <button id="up" type="button">+</button>
+  </div>
+
+  <div class="hint">Tap controls also work, for testing outside Hplay.</div>
+
+<script>
+"use strict";
+const MIN = 40, MAX = 240;
+let bpm = 120, running = false, ctx = null, timer = 0;
+const $bpm = document.getElementById('bpmVal');
+const $dot = document.getElementById('dot');
+const $toggle = document.getElementById('toggle');
+
+function setBpm(v){
+  bpm = Math.max(MIN, Math.min(MAX, Math.round(v)));
+  $bpm.textContent = bpm;
+  if(running) restartTimer();
+}
+function ensureCtx(){ if(!ctx) ctx = new (window.AudioContext||window.webkitAudioContext)(); }
+function tick(){
+  ensureCtx();
+  const t = ctx.currentTime;
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.frequency.value = 1000;
+  gain.gain.setValueAtTime(0.3, t);
+  gain.gain.exponentialRampToValueAtTime(0.001, t + 0.05);
+  osc.connect(gain).connect(ctx.destination);
+  osc.start(t); osc.stop(t + 0.06);
+  $dot.classList.remove('pulse'); void $dot.offsetWidth; $dot.classList.add('pulse');
+  if(navigator.vibrate) navigator.vibrate(8);
+}
+function restartTimer(){ clearInterval(timer); timer = setInterval(tick, 60000/bpm); }
+function start(){
+  if(running) return;
+  running = true;
+  $toggle.textContent = 'Stop'; $toggle.classList.add('on');
+  tick(); restartTimer();
+}
+function stop(){
+  running = false;
+  clearInterval(timer); timer = 0;
+  $toggle.textContent = 'Start'; $toggle.classList.remove('on');
+}
+function toggle(){ running ? stop() : start(); }
+
+document.getElementById('up').addEventListener('click', ()=>setBpm(bpm+1));
+document.getElementById('down').addEventListener('click', ()=>setBpm(bpm-1));
+$toggle.addEventListener('click', toggle);
+
+window.addEventListener('message', (e)=>{
+  if(!e.data || e.data.channel!=='hplay') return;
+  if(e.data.type==='wheel') setBpm(bpm + e.data.dir*(e.data.mult||1));
+  if(e.data.type==='select') toggle();
+});
+</script>
+</body>
+</html>

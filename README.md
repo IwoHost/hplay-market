@@ -70,6 +70,36 @@ window.addEventListener('message', (e) => {
 
 See `apps/library-stats.html` for a working example.
 
+## Click wheel input
+
+Hplay is a click-wheel device — users navigate everything else in the app with the wheel and center
+button, not touch. An installed app should honor that instead of forcing the user to switch to
+tapping the screen. Hplay forwards wheel turns and center-button presses into the app's iframe via
+`postMessage`:
+
+```js
+window.addEventListener('message', (e) => {
+  if (!e.data || e.data.channel !== 'hplay') return;
+  if (e.data.type === 'wheel')  { /* e.data.dir: -1 or 1, e.data.mult: usually 1, higher on a fast spin */ }
+  if (e.data.type === 'select') { /* center button pressed */ }
+});
+```
+
+There's no single right way to use this — it depends on what the app does:
+
+- **One main action** (e.g. a dice roller): make `select` trigger it. See `apps/dice.html`.
+- **A scrollable read-only view**: make `wheel` scroll the page. See `apps/library-stats.html`.
+- **Multiple buttons/rows to choose between**: track a focused index yourself, move it on `wheel`,
+  highlight it (e.g. an outline), and call `.click()` on the focused element on `select`. See
+  `apps/mashup.html` (button + list navigation) or `apps/metronome.html` (a value dialed in by
+  `wheel`, started/stopped by `select`).
+
+The hardware Menu/back button always exits the app back to Hplay's Get More screen — it's never
+forwarded into the iframe, so there's no need to handle it.
+
+Touch still works underneath this — keep your tap handlers too, both for testing the app directly in
+a browser and so it isn't wheel-only.
+
 ## Adding content
 
 1. Drop the file in `apps/` or `decals/` (or add a theme entry directly to `manifest.json`).

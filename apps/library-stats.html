@@ -88,6 +88,13 @@ function renderLibrary(songs){
 
 parent.postMessage({channel:'hplay', type:'getStats'}, '*');
 parent.postMessage({channel:'hplay', type:'getLibrary'}, '*');
+
+window.addEventListener('message', (e)=>{
+  if(!e.data || e.data.channel!=='hplay') return;
+  if(e.data.type==='wheel'){
+    document.scrollingElement.scrollBy({top: e.data.dir*70*(e.data.mult||1), behavior:'smooth'});
+  }
+});
 </script>
 </body>
 </html>

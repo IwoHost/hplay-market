@@ -46,6 +46,7 @@
   #picker{ display:none; }
   #picker.open{ display:block; }
   #main.hidden{ display:none; }
+  .wnav{ outline:2px solid var(--accent); outline-offset:-2px; border-radius:8px; }
 </style>
 </head>
 <body>
@@ -109,9 +110,38 @@ window.addEventListener('message', (e)=>{
     setStatus('Audio access denied — allow it in Hplay to use Mashup.');
   } else if(e.data.type==='mediaError'){
     setStatus('Could not load that song (' + (e.data.reason||'error') + ').');
+  } else if(e.data.type==='wheel'){
+    if(!focusItems.length) return;
+    focusIdx = Math.max(0, Math.min(focusItems.length-1, focusIdx + e.data.dir*(e.data.mult||1)));
+    paintFocus();
+  } else if(e.data.type==='select'){
+    const el = focusItems[focusIdx];
+    if(el) el.click();
   }
 });
 parent.postMessage({channel:'hplay', type:'getLibrary'}, '*');
+
+// click-wheel focus navigation: wheel moves a highlighted selection, center button clicks it
+let focusItems = [], focusIdx = 0;
+function setFocus(items){
+  focusItems = items.filter(Boolean);
+  focusIdx = 0;
+  paintFocus();
+}
+function paintFocus(){
+  focusItems.forEach((el,i)=>el.classList.toggle('wnav', i===focusIdx));
+  const el = focusItems[focusIdx];
+  if(el && el.scrollIntoView) el.scrollIntoView({block:'nearest'});
+}
+function mainFocusItems(){
+  return [
+    document.getElementById('pickLeft'),
+    document.getElementById('pickRight'),
+    document.getElementById('playBtn'),
+    document.getElementById('stopBtn'),
+  ];
+}
+setFocus(mainFocusItems());
 
 function maybeEnablePlay(){
   document.getElementById('playBtn').disabled = !(side.left.blob && side.right.blob);
@@ -125,10 +155,12 @@ function openPicker(s){
     : '<div class="empty">No songs available.</div>';
   document.getElementById('main').classList.add('hidden');
   document.getElementById('picker').classList.add('open');
+  setFocus([...document.querySelectorAll('#pickerList .row[data-id]'), document.getElementById('pickerCancel')]);
 }
 function closePicker(){
   document.getElementById('picker').classList.remove('open');
   document.getElementById('main').classList.remove('hidden');
+  setFocus(mainFocusItems());
 }
 document.getElementById('pickLeft').addEventListener('click', ()=>openPicker('left'));
 document.getElementById('pickRight').addEventListener('click', ()=>openPicker('right'));

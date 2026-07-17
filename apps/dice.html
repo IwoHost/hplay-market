@@ -60,6 +60,11 @@ function roll(){
 }
 $die.addEventListener('click', roll);
 document.getElementById('rollBtn').addEventListener('click', roll);
+
+window.addEventListener('message', (e)=>{
+  if(!e.data || e.data.channel!=='hplay') return;
+  if(e.data.type==='select') roll();   // click wheel center button also rolls
+});
 </script>
 </body>
 </html>
