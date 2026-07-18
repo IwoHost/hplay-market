@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Radio Dial</title>
+<style>
+  :root{
+    --wood:#3b2417; --wood2:#241409; --face:#1a120c; --glass:#120d09;
+    --amber:#ffb84d; --amber-dim:#7a5a2e; --needle:#ff4d4f;
+    --text:#f4e8d8; --sub:#c2ab8a; --btn:#2a1c12;
+  }
+  @media (prefers-color-scheme: light){
+    :root{
+      --wood:#c9a06a; --wood2:#a87b45; --face:#efe1c4; --glass:#e6d5ae;
+      --amber:#b5651d; --amber-dim:#c9a468; --needle:#c0392b;
+      --text:#2c1c0e; --sub:#6e5836; --btn:#dcc396;
+    }
+  }
+  *{ margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; user-select:none; }
+  html,body{ height:100%; }
+  body{
+    font-family:-apple-system,"Helvetica Neue",Helvetica,Arial,sans-serif;
+    background:var(--face); color:var(--text);
+    display:flex; align-items:center; justify-content:center; padding:18px;
+  }
+
+  .radio{
+    width:min(94vw,380px); border-radius:20px; padding:16px;
+    background:linear-gradient(160deg,var(--wood),var(--wood2));
+    box-shadow:0 10px 30px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.08);
+  }
+  .face{
+    position:relative; overflow:hidden; border-radius:13px; padding:16px 14px 14px;
+    background:radial-gradient(120% 100% at 50% -10%, var(--glass), var(--face));
+    border:1px solid rgba(0,0,0,.35);
+  }
+  .brand{ text-align:center; font-size:10.5px; font-weight:800; letter-spacing:.16em; text-transform:uppercase; color:var(--amber-dim); }
+  .demoTag{ text-align:center; font-size:10px; color:var(--sub); margin-top:2px; }
+
+  .readout{ display:flex; align-items:baseline; justify-content:center; gap:5px; margin:10px 0 2px; }
+  .freqNum{ font-size:46px; font-weight:800; color:var(--amber); font-variant-numeric:tabular-nums; letter-spacing:-.01em; text-shadow:0 0 14px rgba(255,184,77,.45); }
+  .freqUnit{ font-size:13px; font-weight:800; color:var(--amber-dim); letter-spacing:.04em; }
+
+  .station{ min-height:18px; text-align:center; font-size:13.5px; font-weight:800; color:var(--text); opacity:0; transition:opacity .25s; letter-spacing:.02em; }
+  .station.show{ opacity:1; }
+  .ticker{ min-height:15px; text-align:center; font-size:11px; color:var(--sub); overflow:hidden; white-space:nowrap; text-overflow:ellipsis; padding:0 6px; }
+
+  .bars{ display:flex; gap:2px; justify-content:center; align-items:flex-end; margin-top:6px; height:18px; }
+  .bar{ width:4px; border-radius:1px; background:var(--amber-dim); opacity:.5; transition:opacity .15s,background .15s; }
+  .bar.on{ background:var(--amber); opacity:1; }
+  .bar:nth-child(1){ height:6px; } .bar:nth-child(2){ height:10px; }
+  .bar:nth-child(3){ height:14px; } .bar:nth-child(4){ height:18px; }
+
+  .dial{ position:relative; margin-top:12px; }
+  .strip{ position:relative; height:38px; border-radius:7px; overflow:hidden; touch-action:none;
+    background:linear-gradient(180deg,rgba(0,0,0,.4),rgba(0,0,0,.18)); }
+  .tick{ position:absolute; bottom:0; width:1px; background:var(--amber-dim); opacity:.5; }
+  .tick.major{ opacity:.85; width:1.5px; }
+  .dot{ position:absolute; bottom:5px; width:6px; height:6px; margin-left:-3px; border-radius:50%; background:var(--amber-dim); transition:background .15s, box-shadow .15s, transform .15s; }
+  .dot.near{ background:var(--amber); box-shadow:0 0 7px var(--amber); transform:scale(1.25); }
+  .needle{ position:absolute; top:0; bottom:0; width:2px; margin-left:-1px; background:var(--needle); box-shadow:0 0 8px var(--needle); }
+  .scaleLabels{ display:flex; justify-content:space-between; margin-top:5px; font-size:9px; font-weight:700; color:var(--sub); }
+
+  .staticCanvas{ position:absolute; inset:0; width:100%; height:100%; opacity:0; pointer-events:none; mix-blend-mode:overlay; image-rendering:pixelated; }
+
+  .controls{ display:flex; align-items:center; justify-content:center; gap:10px; margin-top:16px; }
+  .controls button{ border:none; color:var(--text); background:var(--btn); font-weight:800; border-radius:999px; }
+  .nudge{ width:42px; height:42px; font-size:18px; }
+  #seek{ padding:0 20px; height:42px; font-size:13px; letter-spacing:.03em; background:var(--amber); color:#1a1206; }
+  #seek:active{ transform:translateY(1px); }
+
+  .hint{ color:var(--sub); font-size:11px; text-align:center; max-width:280px; margin:14px auto 0; line-height:1.4; }
+</style>
+</head>
+<body>
+  <div class="radio">
+    <div class="face">
+      <canvas class="staticCanvas" id="staticCanvas" width="64" height="40"></canvas>
+      <div class="brand">Radio Dial</div>
+      <div class="demoTag" id="demoTag" style="display:none;">demo stations — hook up a library for real ones</div>
+
+      <div class="readout">
+        <span class="freqNum" id="freqNum">87.5</span>
+        <span class="freqUnit">FM</span>
+      </div>
+      <div class="station" id="stationName">&nbsp;</div>
+      <div class="ticker" id="ticker">&nbsp;</div>
+      <div class="bars" id="bars">
+        <div class="bar"></div><div class="bar"></div><div class="bar"></div><div class="bar"></div>
+      </div>
+
+      <div class="dial">
+        <div class="strip" id="strip">
+          <div class="needle" id="needle"></div>
+        </div>
+        <div class="scaleLabels"><span>87.5</span><span>98</span><span>108</span></div>
+      </div>
+    </div>
+
+    <div class="controls">
+      <button class="nudge" id="down" type="button">−</button>
+      <button id="seek" type="button">SEEK ▶</button>
+      <button class="nudge" id="up" type="button">+</button>
+    </div>
+  </div>
+
+  <div class="hint">Turn the click wheel to tune, spin fast to sweep the band. Press center to seek the next
+    station. Drag the dial or tap the buttons for testing outside Hplay.</div>
+
+<script>
+"use strict";
+const BAND_MIN = 87.5, BAND_MAX = 108.0;
+const LOCK_RANGE = 0.12, CAPTURE_RANGE = 1.1;
+const SEEK_RATE = 0.012; // MHz per ms
+
+const DEMO = [
+  { name:'Static Only FM', freq:89.1, songs:['— nothing but noise —'] },
+  { name:'Test Tone Radio', freq:94.7, songs:['1kHz Sine Wave','Dead Air, Side B'] },
+  { name:'The Empty Library Hour', freq:101.5, songs:['Add music to your Hplay library','…to hear real stations here'] },
+  { name:'Lo-Fi Ghost Station', freq:105.9, songs:['Nobody Broadcasting Tonight'] },
+];
+
+function hash01(s){
+  let h = 0;
+  for(let i=0;i<s.length;i++) h = (h*31 + s.charCodeAt(i)) | 0;
+  return ((h>>>0) % 1000) / 1000;
+}
+
+function layoutStations(list){
+  const n = list.length;
+  const width = BAND_MAX - BAND_MIN;
+  const spacing = width / (n+1);
+  const stations = list.map((st,i)=>{
+    const base = BAND_MIN + spacing*(i+1);
+    const jitter = (hash01(st.name) - 0.5) * spacing * 0.7;
+    let f = Math.max(BAND_MIN+0.15, Math.min(BAND_MAX-0.15, base+jitter));
+    return { name:st.name, songs:st.songs, freq: Math.round(f*10)/10 };
+  });
+  stations.sort((a,b)=>a.freq-b.freq);
+  for(let i=1;i<stations.length;i++){
+    if(stations[i].freq <= stations[i-1].freq) stations[i].freq = Math.round((stations[i-1].freq+0.2)*10)/10;
+  }
+  for(let i=stations.length-1;i>=0;i--){
+    if(stations[i].freq > BAND_MAX-0.1){
+      stations[i].freq = BAND_MAX-0.1;
+      if(i>0 && stations[i].freq <= stations[i-1].freq) stations[i-1].freq = Math.round((stations[i].freq-0.2)*10)/10;
+    }
+  }
+  return stations;
+}
+
+function buildFromLibrary(songs){
+  const map = new Map();
+  for(const s of songs){
+    const artist = (s.artist||'').trim() || 'Unknown Artist';
+    const title = (s.title||'').trim() || 'Untitled';
+    if(!map.has(artist)) map.set(artist, []);
+    const arr = map.get(artist);
+    if(arr.length<8 && !arr.includes(title)) arr.push(title);
+  }
+  if(map.size===0) return null;
+  let names = Array.from(map.keys());
+  if(names.length>24){
+    names.sort((a,b)=> map.get(b).length-map.get(a).length || a.localeCompare(b));
+    names = names.slice(0,24);
+  }
+  names.sort((a,b)=>a.localeCompare(b));
+  return layoutStations(names.map(n=>({name:n, songs:map.get(n)})));
+}
+
+const $freqNum = document.getElementById('freqNum');
+const $stationName = document.getElementById('stationName');
+const $ticker = document.getElementById('ticker');
+const $strip = document.getElementById('strip');
+const $needle = document.getElementById('needle');
+const $bars = document.getElementById('bars').children;
+const $demoTag = document.getElementById('demoTag');
+const $canvas = document.getElementById('staticCanvas');
+const nctx = $canvas.getContext('2d');
+
+let stations = [];
+let freq = BAND_MIN;
+let lastDir = 1;
+let seeking = false, seekTarget = 0;
+let locked = false, wasLocked = false;
+let currentStation = null;
+let tickerIdx = 0, tickerTimer = 0;
+let noiseTimer = 0;
+let ctx = null, noiseGain = null, noiseFilter = null;
+
+function ensureAudio(){
+  if(ctx) return;
+  ctx = new (window.AudioContext||window.webkitAudioContext)();
+  const bufSize = ctx.sampleRate * 2;
+  const buffer = ctx.createBuffer(1, bufSize, ctx.sampleRate);
+  const data = buffer.getChannelData(0);
+  for(let i=0;i<bufSize;i++) data[i] = Math.random()*2-1;
+  const src = ctx.createBufferSource();
+  src.buffer = buffer; src.loop = true;
+  noiseFilter = ctx.createBiquadFilter();
+  noiseFilter.type = 'bandpass'; noiseFilter.frequency.value = 2400; noiseFilter.Q.value = 0.6;
+  noiseGain = ctx.createGain(); noiseGain.gain.value = 0;
+  src.connect(noiseFilter).connect(noiseGain).connect(ctx.destination);
+  src.start();
+}
+function chime(){
+  if(!ctx) return;
+  const t = ctx.currentTime;
+  [880, 1320].forEach((f,i)=>{
+    const osc = ctx.createOscillator(), gain = ctx.createGain();
+    osc.frequency.value = f;
+    gain.gain.setValueAtTime(0.001, t+i*0.05);
+    gain.gain.exponentialRampToValueAtTime(0.16, t+i*0.05+0.02);
+    gain.gain.exponentialRampToValueAtTime(0.001, t+i*0.05+0.16);
+    osc.connect(gain).connect(ctx.destination);
+    osc.start(t+i*0.05); osc.stop(t+i*0.05+0.18);
+  });
+  if(navigator.vibrate) navigator.vibrate(12);
+}
+
+function setFreq(v){ freq = Math.max(BAND_MIN, Math.min(BAND_MAX, v)); seeking = false; }
+
+function findSeekTarget(dir){
+  const eps = 0.05;
+  let cands = stations.filter(s => dir>0 ? s.freq>freq+eps : s.freq<freq-eps);
+  if(dir>0){
+    cands.sort((a,b)=>a.freq-b.freq);
+    return cands[0] || stations.slice().sort((a,b)=>a.freq-b.freq)[0];
+  }
+  cands.sort((a,b)=>b.freq-a.freq);
+  return cands[0] || stations.slice().sort((a,b)=>b.freq-a.freq)[0];
+}
+function seek(dir){
+  ensureAudio();
+  if(seeking || !stations.length) return;
+  const target = findSeekTarget(dir);
+  if(!target) return;
+  seekTarget = target.freq;
+  seeking = true;
+}
+
+function buildDial(){
+  $strip.querySelectorAll('.tick,.dot').forEach(n=>n.remove());
+  for(let f=Math.ceil(BAND_MIN); f<=Math.floor(BAND_MAX); f++){
+    const t = document.createElement('div');
+    t.className = 'tick' + (f%5===0 ? ' major' : '');
+    t.style.left = ((f-BAND_MIN)/(BAND_MAX-BAND_MIN)*100) + '%';
+    t.style.height = (f%5===0 ? '55%' : '35%');
+    $strip.appendChild(t);
+  }
+  stations.forEach(s=>{
+    const d = document.createElement('div');
+    d.className = 'dot'; d.dataset.freq = s.freq;
+    d.style.left = ((s.freq-BAND_MIN)/(BAND_MAX-BAND_MIN)*100) + '%';
+    d.title = s.name;
+    $strip.appendChild(d);
+  });
+}
+
+function drawNoise(){
+  const w = $canvas.width, h = $canvas.height;
+  const img = nctx.createImageData(w,h);
+  const d = img.data;
+  for(let i=0;i<d.length;i+=4){
+    const v = (Math.random()*255)|0;
+    d[i]=d[i+1]=d[i+2]=v; d[i+3]=255;
+  }
+  nctx.putImageData(img,0,0);
+}
+
+function nearestStation(){
+  let best = null, bestDist = Infinity;
+  for(const s of stations){
+    const dist = Math.abs(s.freq-freq);
+    if(dist<bestDist){ bestDist = dist; best = s; }
+  }
+  return { station: best, dist: bestDist };
+}
+
+function updateVisuals(dt){
+  const { station, dist } = nearestStation();
+  locked = dist <= LOCK_RANGE;
+  const staticLevel = locked ? 0 : Math.min(1, Math.max(0, (dist-LOCK_RANGE) / (CAPTURE_RANGE-LOCK_RANGE)));
+
+  const displayFreq = locked ? station.freq : freq;
+  $freqNum.textContent = displayFreq.toFixed(1);
+  $needle.style.left = ((freq-BAND_MIN)/(BAND_MAX-BAND_MIN)*100) + '%';
+
+  $strip.querySelectorAll('.dot').forEach(d=>{
+    d.classList.toggle('near', station && Math.abs(+d.dataset.freq - station.freq) < 0.001 && dist < 1.4);
+  });
+
+  const activeBars = Math.round((1-staticLevel)*4);
+  for(let i=0;i<$bars.length;i++) $bars[i].classList.toggle('on', i<activeBars);
+
+  if(locked){
+    if(currentStation !== station){ currentStation = station; tickerIdx = 0; tickerTimer = 0; }
+    $stationName.textContent = displayFreq.toFixed(1) + ' — ' + station.name.toUpperCase();
+    $stationName.classList.add('show');
+    tickerTimer += dt;
+    if(tickerTimer > 2200 || $ticker.textContent === ' '){
+      tickerTimer = 0;
+      $ticker.textContent = 'Now Playing: ' + station.songs[tickerIdx % station.songs.length];
+      tickerIdx++;
+    }
+  } else {
+    currentStation = null;
+    $stationName.classList.remove('show');
+    $ticker.textContent = ' ';
+  }
+
+  if(locked && !wasLocked) chime();
+  wasLocked = locked;
+
+  if(noiseGain){
+    noiseGain.gain.setTargetAtTime(staticLevel*0.22, ctx.currentTime, 0.05);
+  }
+  $canvas.style.opacity = staticLevel*0.32;
+  noiseTimer += dt;
+  if(staticLevel>0.02 && noiseTimer>70){ noiseTimer = 0; drawNoise(); }
+}
+
+let lastTs = null;
+function frame(ts){
+  const dt = lastTs===null ? 16 : Math.min(50, ts-lastTs);
+  lastTs = ts;
+  if(seeking){
+    const dir = Math.sign(seekTarget-freq);
+    const move = dir*SEEK_RATE*dt;
+    if(dir===0 || Math.abs(seekTarget-freq) <= Math.abs(move)){ freq = seekTarget; seeking = false; }
+    else freq += move;
+  }
+  updateVisuals(dt);
+  requestAnimationFrame(frame);
+}
+
+function initUI(){
+  buildDial();
+  $demoTag.style.display = stations===DEMO ? 'block' : 'none';
+  requestAnimationFrame(frame);
+}
+
+document.getElementById('up').addEventListener('click', ()=>{ ensureAudio(); lastDir=1; setFreq(freq+0.15); });
+document.getElementById('down').addEventListener('click', ()=>{ ensureAudio(); lastDir=-1; setFreq(freq-0.15); });
+document.getElementById('seek').addEventListener('click', ()=> seek(lastDir));
+
+let dragging = false;
+function freqFromX(clientX){
+  const r = $strip.getBoundingClientRect();
+  const pct = Math.max(0, Math.min(1, (clientX-r.left)/r.width));
+  return BAND_MIN + pct*(BAND_MAX-BAND_MIN);
+}
+$strip.addEventListener('pointerdown', e=>{
+  ensureAudio(); dragging = true; $strip.setPointerCapture(e.pointerId);
+  setFreq(freqFromX(e.clientX));
+});
+$strip.addEventListener('pointermove', e=>{ if(dragging) setFreq(freqFromX(e.clientX)); });
+$strip.addEventListener('pointerup', ()=>{ dragging = false; });
+$strip.addEventListener('pointercancel', ()=>{ dragging = false; });
+
+window.addEventListener('message', (e)=>{
+  if(!e.data || e.data.channel!=='hplay') return;
+  if(e.data.type==='wheel'){
+    ensureAudio();
+    lastDir = e.data.dir;
+    setFreq(freq + e.data.dir*(e.data.mult||1)*0.12);
+  }
+  if(e.data.type==='select') seek(lastDir);
+});
+
+(function requestLibraryAndInit(){
+  let done = false;
+  function finish(songs){
+    if(done) return; done = true;
+    const built = songs && songs.length ? buildFromLibrary(songs) : null;
+    stations = built || DEMO;
+    freq = BAND_MIN;
+    initUI();
+  }
+  window.addEventListener('message', function onMsg(e){
+    if(!e.data || e.data.channel!=='hplay' || e.data.type!=='library') return;
+    window.removeEventListener('message', onMsg);
+    finish(e.data.data);
+  });
+  parent.postMessage({channel:'hplay', type:'getLibrary'}, '*');
+  setTimeout(()=>finish(null), 400);
+})();
+</script>
+</body>
+</html>
