@@ -6,7 +6,8 @@
     { "id": "metronome", "name": "Metronome", "desc": "Wheel-adjustable tempo click", "file": "apps/metronome.html" },
     { "id": "ibrick", "name": "iBrick", "desc": "Classic brick-breaker, wheel moves the paddle", "file": "apps/ibrick.html" },
     { "id": "magic8ball", "name": "Magic 8-Ball", "desc": "Press center to ask", "file": "apps/magic8ball.html" },
-    { "id": "tictactoe", "name": "Tic-Tac-Toe", "desc": "Two player, wheel moves the cursor", "file": "apps/tictactoe.html" }
+    { "id": "tictactoe", "name": "Tic-Tac-Toe", "desc": "Two player, wheel moves the cursor", "file": "apps/tictactoe.html" },
+    { "id": "radiodial", "name": "Radio Dial", "desc": "Tune your library like FM radio, wheel scans, center seeks", "file": "apps/radio-dial.html" }
   ],
   "themes": [
     { "id": "gold", "name": "Gold",
