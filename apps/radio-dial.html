@@ -115,10 +115,10 @@ const LOCK_RANGE = 0.12, CAPTURE_RANGE = 1.1;
 const SEEK_RATE = 0.012; // MHz per ms
 
 const DEMO = [
-  { name:'Static Only FM', freq:89.1, songs:['— nothing but noise —'] },
-  { name:'Test Tone Radio', freq:94.7, songs:['1kHz Sine Wave','Dead Air, Side B'] },
-  { name:'The Empty Library Hour', freq:101.5, songs:['Add music to your Hplay library','…to hear real stations here'] },
-  { name:'Lo-Fi Ghost Station', freq:105.9, songs:['Nobody Broadcasting Tonight'] },
+  { name:'Static Only FM', freq:89.1, songs:[{id:null,title:'— nothing but noise —'}] },
+  { name:'Test Tone Radio', freq:94.7, songs:[{id:null,title:'1kHz Sine Wave'},{id:null,title:'Dead Air, Side B'}] },
+  { name:'The Empty Library Hour', freq:101.5, songs:[{id:null,title:'Add music to your Hplay library'},{id:null,title:'…to hear real stations here'}] },
+  { name:'Lo-Fi Ghost Station', freq:105.9, songs:[{id:null,title:'Nobody Broadcasting Tonight'}] },
 ];
 
 function hash01(s){
@@ -157,7 +157,7 @@ function buildFromLibrary(songs){
     const title = (s.title||'').trim() || 'Untitled';
     if(!map.has(artist)) map.set(artist, []);
     const arr = map.get(artist);
-    if(arr.length<8 && !arr.includes(title)) arr.push(title);
+    if(arr.length<8 && !arr.some(x=>x.id===s.id)) arr.push({id:s.id, title});
   }
   if(map.size===0) return null;
   let names = Array.from(map.keys());
@@ -185,9 +185,11 @@ let lastDir = 1;
 let seeking = false, seekTarget = 0;
 let locked = false, wasLocked = false;
 let currentStation = null;
-let tickerIdx = 0, tickerTimer = 0;
 let noiseTimer = 0;
 let ctx = null, noiseGain = null, noiseFilter = null;
+let musicAudio = null, musicGain = null;
+let currentTrackId = null, pendingTrackId = null, currentObjectUrl = null;
+let mediaAllowed = true;
 
 function ensureAudio(){
   if(ctx) return;
@@ -203,6 +205,34 @@ function ensureAudio(){
   noiseGain = ctx.createGain(); noiseGain.gain.value = 0;
   src.connect(noiseFilter).connect(noiseGain).connect(ctx.destination);
   src.start();
+
+  musicAudio = new Audio();
+  musicGain = ctx.createGain();
+  musicGain.gain.value = 0;
+  ctx.createMediaElementSource(musicAudio).connect(musicGain).connect(ctx.destination);
+  musicAudio.addEventListener('ended', onTrackEnded);
+}
+
+function playStationSong(station){
+  if(!station || !station.songs || !station.songs.length || !mediaAllowed) return;
+  const song = station.songs[station.playIdx % station.songs.length];
+  if(!song || song.id==null) return; // demo placeholder — nothing real to fetch
+  ensureAudio();
+  if(currentTrackId === song.id){ musicAudio.play().catch(()=>{}); return; }
+  pendingTrackId = song.id;
+  parent.postMessage({channel:'hplay', type:'getAudio', id:song.id}, '*');
+}
+function onTrackEnded(){
+  if(!currentStation || !currentStation.songs.length) return;
+  currentStation.playIdx = (currentStation.playIdx+1) % currentStation.songs.length;
+  playStationSong(currentStation);
+}
+function switchToStation(station){
+  currentStation = station;
+  if(station.playIdx==null) station.playIdx = 0;
+  if(musicAudio) musicAudio.pause();
+  currentTrackId = null;
+  playStationSong(station);
 }
 function chime(){
   if(!ctx) return;
@@ -295,16 +325,13 @@ function updateVisuals(dt){
   for(let i=0;i<$bars.length;i++) $bars[i].classList.toggle('on', i<activeBars);
 
   if(locked){
-    if(currentStation !== station){ currentStation = station; tickerIdx = 0; tickerTimer = 0; }
+    if(currentStation !== station) switchToStation(station);
     $stationName.textContent = displayFreq.toFixed(1) + ' — ' + station.name.toUpperCase();
     $stationName.classList.add('show');
-    tickerTimer += dt;
-    if(tickerTimer > 2200 || $ticker.textContent === ' '){
-      tickerTimer = 0;
-      $ticker.textContent = 'Now Playing: ' + station.songs[tickerIdx % station.songs.length];
-      tickerIdx++;
-    }
+    const nowSong = station.songs[station.playIdx % station.songs.length];
+    $ticker.textContent = 'Now Playing: ' + (nowSong ? nowSong.title : '');
   } else {
+    if(currentStation && musicAudio) musicAudio.pause();
     currentStation = null;
     $stationName.classList.remove('show');
     $ticker.textContent = ' ';
@@ -315,6 +342,9 @@ function updateVisuals(dt){
 
   if(noiseGain){
     noiseGain.gain.setTargetAtTime(staticLevel*0.22, ctx.currentTime, 0.05);
+  }
+  if(musicGain){
+    musicGain.gain.setTargetAtTime(locked ? 0.85 : (1-staticLevel)*0.4, ctx.currentTime, 0.08);
   }
   $canvas.style.opacity = staticLevel*0.32;
   noiseTimer += dt;
@@ -367,6 +397,21 @@ window.addEventListener('message', (e)=>{
     setFreq(freq + e.data.dir*(e.data.mult||1)*0.12);
   }
   if(e.data.type==='select') seek(lastDir);
+  if(e.data.type==='audio'){
+    if(e.data.id !== pendingTrackId || !musicAudio) return;
+    if(currentObjectUrl) URL.revokeObjectURL(currentObjectUrl);
+    currentObjectUrl = URL.createObjectURL(e.data.blob);
+    currentTrackId = e.data.id;
+    musicAudio.src = currentObjectUrl;
+    musicAudio.currentTime = 0;
+    musicAudio.play().catch(()=>{});
+  }
+  if(e.data.type==='mediaDenied'){
+    mediaAllowed = false; // keep the ticker/tuning working, just no real audio
+  }
+  if(e.data.type==='mediaError'){
+    if(currentStation && currentStation.songs.length > 1) onTrackEnded();
+  }
 });
 
 (function requestLibraryAndInit(){
@@ -384,7 +429,7 @@ window.addEventListener('message', (e)=>{
     finish(e.data.data);
   });
   parent.postMessage({channel:'hplay', type:'getLibrary'}, '*');
-  setTimeout(()=>finish(null), 400);
+  setTimeout(()=>finish(null), 3000);
 })();
 </script>
 </body>
