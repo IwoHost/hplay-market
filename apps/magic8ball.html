@@ -12,11 +12,11 @@
   body{
     font-family:-apple-system,"Helvetica Neue",Helvetica,Arial,sans-serif;
     background:var(--bg); color:var(--text);
-    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:20px;
-    touch-action:manipulation;
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px;
+    touch-action:manipulation; overflow:hidden; padding:6px;
   }
   .ball{
-    width:52vw; max-width:220px; aspect-ratio:1; border-radius:50%;
+    width:min(44vw, 62vh); max-width:170px; aspect-ratio:1; border-radius:50%;
     background:radial-gradient(circle at 32% 28%, #3a3f48, #0c0d10 68%);
     box-shadow:0 10px 30px rgba(0,0,0,.4), inset 0 0 0 6px #050506;
     display:flex; align-items:center; justify-content:center;
@@ -36,8 +36,8 @@
     box-shadow:inset 0 0 14px rgba(0,0,0,.6);
     padding:10%;
   }
-  .window .ans{ color:#eaf1ff; font-weight:700; font-size:13px; text-align:center; line-height:1.35; }
-  .hint{ color:var(--sub); font-size:13px; font-weight:600; text-align:center; }
+  .window .ans{ color:#eaf1ff; font-weight:700; font-size:min(3.4vh, 12px); text-align:center; line-height:1.3; }
+  .hint{ color:var(--sub); font-size:11px; font-weight:600; text-align:center; }
 </style>
 </head>
 <body>

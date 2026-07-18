@@ -12,27 +12,27 @@
   body{
     font-family:-apple-system,"Helvetica Neue",Helvetica,Arial,sans-serif;
     background:var(--bg); color:var(--text);
-    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:16px;
-    touch-action:manipulation;
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px;
+    touch-action:manipulation; overflow:hidden; padding:6px;
   }
-  .turn{ font-size:14px; font-weight:700; color:var(--sub); min-height:18px; }
+  .turn{ font-size:12px; font-weight:700; color:var(--sub); min-height:15px; }
   .board{
-    display:grid; grid-template-columns:repeat(3,1fr); gap:6px;
-    width:70vw; max-width:280px; aspect-ratio:1;
+    display:grid; grid-template-columns:repeat(3,1fr); gap:5px;
+    width:min(52vw, 68vh); max-width:200px; aspect-ratio:1;
   }
   .cell{
-    background:var(--line); border-radius:10px;
+    background:var(--line); border-radius:9px;
     display:flex; align-items:center; justify-content:center;
-    font-size:min(9vw,38px); font-weight:800;
+    font-size:min(7vw, 9vh, 30px); font-weight:800;
     outline:2px solid transparent; outline-offset:-2px;
   }
   .cell.focus{ outline-color:var(--accent); }
   .cell.x{ color:#4a90e2; }
   .cell.o{ color:#e05a5a; }
-  .status{ font-size:14px; font-weight:700; min-height:20px; }
+  .status{ font-size:12px; font-weight:700; min-height:16px; }
   .reset{
-    border:none; background:var(--accent); color:#fff; font-weight:700; font-size:13px;
-    padding:8px 20px; border-radius:999px;
+    border:none; background:var(--accent); color:#fff; font-weight:700; font-size:12px;
+    padding:6px 16px; border-radius:999px;
   }
 </style>
 </head>

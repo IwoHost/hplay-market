@@ -11,37 +11,38 @@
   }
   *{ margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; user-select:none; }
   html,body{ height:100%; }
+  html,body{ overflow:hidden; }
   body{
     font-family:-apple-system,"Helvetica Neue",Helvetica,Arial,sans-serif;
-    background:var(--bg); color:var(--text); line-height:1.4;
-    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:18px;
-    padding:24px;
+    background:var(--bg); color:var(--text); line-height:1.25;
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px;
+    padding:8px;
   }
-  h1{ font-size:17px; font-weight:700; }
-  p.sub{ color:var(--sub); font-size:13px; text-align:center; max-width:260px; margin-top:-8px; }
+  h1{ font-size:13px; font-weight:700; }
+  p.sub{ display:none; }
 
   .bpmBox{ text-align:center; }
-  .bpm{ font-size:64px; font-weight:800; font-variant-numeric:tabular-nums; letter-spacing:-.02em; }
-  .bpmLab{ color:var(--sub); font-size:12px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; }
+  .bpm{ font-size:34px; font-weight:800; font-variant-numeric:tabular-nums; letter-spacing:-.02em; }
+  .bpmLab{ color:var(--sub); font-size:10px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; }
 
   .dot{
-    width:16px; height:16px; border-radius:50%; background:var(--line); transition:background .05s;
+    width:10px; height:10px; border-radius:50%; background:var(--line); transition:background .05s;
   }
   .dot.pulse{ background:var(--accent); animation:fade .3s ease-out; }
   @keyframes fade{ 0%{ transform:scale(1.4); } 100%{ transform:scale(1); } }
 
-  .controls{ display:flex; gap:10px; align-items:center; }
+  .controls{ display:flex; gap:8px; align-items:center; }
   .controls button{
     border:1px solid var(--line); background:var(--mono-bg); color:var(--text);
-    font-size:20px; font-weight:700; width:46px; height:46px; border-radius:50%;
+    font-size:15px; font-weight:700; width:32px; height:32px; border-radius:50%;
   }
   #toggle{
-    border:none; color:#fff; background:var(--accent); font-size:14px; font-weight:700;
-    width:auto; height:46px; padding:0 22px; border-radius:999px;
+    border:none; color:#fff; background:var(--accent); font-size:11px; font-weight:700;
+    width:auto; height:32px; padding:0 14px; border-radius:999px;
   }
   #toggle.on{ background:#c0392b; }
 
-  .hint{ color:var(--sub); font-size:11.5px; text-align:center; max-width:240px; }
+  .hint{ color:var(--sub); font-size:9.5px; text-align:center; max-width:200px; }
   .wnav{ outline:2px solid var(--accent); outline-offset:2px; }
 </style>
 </head>

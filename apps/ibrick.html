@@ -14,14 +14,14 @@
     background:var(--bg); color:var(--text);
     display:flex; flex-direction:column; align-items:center;
   }
-  .hud{ display:flex; justify-content:space-between; width:100%; padding:10px 16px; font-size:13px; font-weight:700; color:var(--sub); }
+  .hud{ display:flex; justify-content:space-between; width:100%; padding:7px 12px; font-size:11px; font-weight:700; color:var(--sub); }
   canvas{ display:block; touch-action:none; }
   .msg{
     position:fixed; left:50%; top:45%; transform:translate(-50%,-50%);
     text-align:center; pointer-events:none;
   }
-  .msg .big{ font-size:20px; font-weight:800; margin-bottom:6px; }
-  .msg .small{ font-size:13px; color:var(--sub); }
+  .msg .big{ font-size:16px; font-weight:800; margin-bottom:4px; }
+  .msg .small{ font-size:11px; color:var(--sub); }
 </style>
 </head>
 <body>
@@ -43,28 +43,36 @@ const $msg = document.getElementById('msg');
 let W = 0, H = 0;
 function resize(){
   const DPR = window.devicePixelRatio || 1;
-  W = window.innerWidth; H = window.innerHeight - 40;
+  W = window.innerWidth; H = window.innerHeight - 32;
   $c.width = W * DPR; $c.height = H * DPR;
   $c.style.width = W + 'px'; $c.style.height = H + 'px';
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  PADDLE_W = Math.max(46, Math.min(90, W*0.22));
   layoutBricks();
 }
 window.addEventListener('resize', resize);
 
-const ROWS = 5, COLS = 7;
+const COLS = 7;
 let bricks = [];
 const rowColors = ['#e05a5a', '#e0a05a', '#e0d85a', '#7ac95a', '#5a9ce0'];
 function layoutBricks(){
   bricks = [];
-  const pad = 4, top = 16, bw = (W - pad*(COLS+1)) / COLS, bh = 16;
-  for(let r=0; r<ROWS; r++){
+  const pad = 4, top = 8;
+  const bw = (W - pad*(COLS+1)) / COLS;
+  // reserve roughly half the play field for bricks so there's always room below to play,
+  // even on the short, wide screen area the app actually renders in
+  const brickAreaH = H * 0.5;
+  const rows = Math.max(3, Math.min(5, Math.floor(brickAreaH / 20)));
+  const bh = Math.max(9, Math.min(16, (brickAreaH - top) / rows - pad));
+  for(let r=0; r<rows; r++){
     for(let c=0; c<COLS; c++){
       bricks.push({ x: pad+c*(bw+pad), y: top+r*(bh+pad), w:bw, h:bh, alive:true, color: rowColors[r%rowColors.length] });
     }
   }
 }
 
-const PADDLE_W = 70, PADDLE_H = 10;
+let PADDLE_W = 70;
+const PADDLE_H = 10;
 let paddleX = 0, ball = null, running = false, lives = 3, score = 0, over = false;
 
 function resetBall(){
