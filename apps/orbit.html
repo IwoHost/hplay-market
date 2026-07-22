@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Orbit Defense</title>
+<style>
+  :root{ --bg:#0a0d14; --text:#e8ebf0; --sub:#8a93a6; --ring:#1c2230; --danger:#e0433a; --accent:#4ac0ff; }
+  @media (prefers-color-scheme: light){ :root{ --bg:#eef1f6; --text:#151a24; --sub:#5c6577; --ring:#c6ccd9; --danger:#d1362c; --accent:#0f7fc4; } }
+  *{ margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; user-select:none; }
+  html,body{ height:100%; overflow:hidden; touch-action:none; }
+  body{
+    font-family:-apple-system,"Helvetica Neue",Helvetica,Arial,sans-serif;
+    background:var(--bg); color:var(--text);
+    display:flex; flex-direction:column; align-items:center;
+  }
+  .hud{ display:flex; justify-content:space-between; width:100%; padding:7px 12px; font-size:11px; font-weight:700; color:var(--sub); }
+  canvas{ display:block; touch-action:none; }
+  .msg{
+    position:fixed; left:50%; top:44%; transform:translate(-50%,-50%);
+    text-align:center; pointer-events:none;
+  }
+  .msg .big{ font-size:16px; font-weight:800; margin-bottom:4px; }
+  .msg .small{ font-size:11px; color:var(--sub); }
+</style>
+</head>
+<body>
+  <div class="hud">
+    <span id="score">Score: 0</span>
+    <span id="lives">Lives: 3</span>
+  </div>
+  <canvas id="c"></canvas>
+  <div class="msg" id="msg"></div>
+
+<script>
+"use strict";
+const $c = document.getElementById('c');
+const ctx = $c.getContext('2d');
+const $score = document.getElementById('score');
+const $lives = document.getElementById('lives');
+const $msg = document.getElementById('msg');
+
+let W=0, H=0, cx=0, cy=0, maxR=0;
+function resize(){
+  const DPR = window.devicePixelRatio || 1;
+  W = window.innerWidth; H = window.innerHeight - 32;
+  $c.width = W*DPR; $c.height = H*DPR;
+  $c.style.width = W+'px'; $c.style.height = H+'px';
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+  cx = W/2; cy = H/2;
+  maxR = Math.min(W,H)/2 - 10;
+}
+window.addEventListener('resize', resize);
+
+let ac = null;
+function ensureAudio(){ if(!ac){ try{ ac = new (window.AudioContext||window.webkitAudioContext)(); }catch(e){} } }
+function blip(freq, dur, gainPeak){
+  if(!ac) return;
+  const t = ac.currentTime;
+  const o = ac.createOscillator(), g = ac.createGain();
+  o.type = 'square'; o.frequency.value = freq;
+  g.gain.setValueAtTime(gainPeak||0.08, t);
+  g.gain.exponentialRampToValueAtTime(0.0001, t+(dur||0.08));
+  o.connect(g).connect(ac.destination);
+  o.start(t); o.stop(t+(dur||0.08)+0.02);
+}
+
+let aim = -Math.PI/2;   // pointing "up" to start
+const TURN_STEP = 0.11;
+let enemies = [], shots = [];
+let score = 0, lives = 3, running = false, over = false;
+let spawnTimer = 0, spawnEvery = 1500, elapsed = 0;
+
+function reset(){
+  enemies = []; shots = [];
+  score = 0; lives = 3; over = false; running = false;
+  spawnTimer = 0; spawnEvery = 1500; elapsed = 0;
+  aim = -Math.PI/2;
+  updateHud();
+  showMsg('Orbit Defense', 'Turn the wheel to aim, press center to fire');
+}
+function updateHud(){ $score.textContent = 'Score: '+score; $lives.textContent = 'Lives: '+lives; }
+function showMsg(big, small){ $msg.innerHTML = '<div class="big">'+big+'</div><div class="small">'+(small||'')+'</div>'; }
+function hideMsg(){ $msg.innerHTML=''; }
+
+function turn(dir, mult){
+  aim += dir*(mult||1)*TURN_STEP;
+}
+function fire(){
+  ensureAudio();
+  if(over){ reset(); return; }
+  if(!running){ running = true; hideMsg(); }
+  shots.push({ x:0, y:0, ang:aim, spd:6.2 });
+  blip(1400, 0.05, 0.06);
+}
+
+function spawnEnemy(){
+  const ang = Math.random()*Math.PI*2;
+  const speed = 22 + Math.min(60, elapsed/1400);   // px/sec, ramps with time
+  enemies.push({ ang, dist:maxR, speed, r:9 });
+}
+
+let lastTs = null;
+function step(ts){
+  const dt = lastTs===null ? 16 : Math.min(50, ts-lastTs);
+  lastTs = ts;
+  if(running && !over){
+    elapsed += dt;
+    spawnTimer += dt;
+    const every = Math.max(420, spawnEvery - elapsed/24);
+    if(spawnTimer > every){ spawnTimer = 0; spawnEnemy(); }
+
+    enemies.forEach(e=> e.dist -= e.speed*dt/1000);
+    shots.forEach(s=>{ s.x += Math.cos(s.ang)*s.spd*(dt/16.67); s.y += Math.sin(s.ang)*s.spd*(dt/16.67); });
+
+    // shot vs enemy collisions
+    for(const s of shots){
+      if(s.hit) continue;
+      const sr = Math.hypot(s.x, s.y);
+      for(const e of enemies){
+        if(e.dead) continue;
+        const ex = Math.cos(e.ang)*e.dist, ey = Math.sin(e.ang)*e.dist;
+        if(Math.hypot(s.x-ex, s.y-ey) < e.r+4){
+          e.dead = true; s.hit = true; score += 10; updateHud();
+          blip(700, 0.09, 0.07);
+          break;
+        }
+      }
+    }
+    shots = shots.filter(s=> !s.hit && Math.hypot(s.x,s.y) < maxR+20);
+
+    for(const e of enemies){
+      if(e.dead) continue;
+      if(e.dist <= 6){
+        e.dead = true; lives--; updateHud();
+        blip(160, 0.22, 0.09);
+        if(lives<=0){
+          over = true; running = false;
+          showMsg('Overrun', 'Score '+score+' — press center to retry');
+        }
+      }
+    }
+    enemies = enemies.filter(e=> !e.dead);
+  }
+  draw();
+  requestAnimationFrame(step);
+}
+
+function draw(){
+  ctx.clearRect(0,0,W,H);
+  ctx.save();
+  ctx.translate(cx,cy);
+
+  // arena ring
+  ctx.strokeStyle = getComputedStyle(document.body).getPropertyValue('--ring');
+  ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.arc(0,0,maxR,0,Math.PI*2); ctx.stroke();
+
+  // enemies
+  ctx.fillStyle = getComputedStyle(document.body).getPropertyValue('--danger');
+  for(const e of enemies){
+    const ex = Math.cos(e.ang)*e.dist, ey = Math.sin(e.ang)*e.dist;
+    ctx.beginPath(); ctx.arc(ex, ey, e.r, 0, Math.PI*2); ctx.fill();
+  }
+
+  // shots
+  ctx.fillStyle = getComputedStyle(document.body).getPropertyValue('--accent');
+  for(const s of shots){ ctx.beginPath(); ctx.arc(s.x, s.y, 3, 0, Math.PI*2); ctx.fill(); }
+
+  // turret
+  ctx.save();
+  ctx.rotate(aim);
+  ctx.fillStyle = getComputedStyle(document.body).color;
+  ctx.beginPath();
+  ctx.moveTo(16,0); ctx.lineTo(-8,7); ctx.lineTo(-8,-7); ctx.closePath(); ctx.fill();
+  ctx.restore();
+  ctx.beginPath(); ctx.arc(0,0,9,0,Math.PI*2); ctx.fillStyle = getComputedStyle(document.body).color; ctx.fill();
+
+  ctx.restore();
+}
+
+window.addEventListener('message', (e)=>{
+  if(!e.data || e.data.channel!=='hplay') return;
+  if(e.data.type==='wheel'){ ensureAudio(); turn(e.data.dir, e.data.mult); }
+  if(e.data.type==='select') fire();
+});
+
+// mouse/touch drag rotates the turret for testing outside Hplay; tap fires
+let dragging = false, lastAng = 0;
+function angFromEvent(x,y){ return Math.atan2(y-cy, x-cx); }
+$c.addEventListener('pointerdown', e=>{ dragging = true; lastAng = angFromEvent(e.clientX,e.clientY); ensureAudio(); });
+$c.addEventListener('pointermove', e=>{
+  if(!dragging) return;
+  const a = angFromEvent(e.clientX,e.clientY);
+  let d = a - lastAng; if(d>Math.PI) d-=Math.PI*2; if(d<-Math.PI) d+=Math.PI*2;
+  aim += d; lastAng = a;
+});
+$c.addEventListener('pointerup', ()=>{ dragging=false; fire(); });
+$c.addEventListener('pointercancel', ()=>{ dragging=false; });
+
+resize();
+reset();
+requestAnimationFrame(step);
+</script>
+</body>
+</html>

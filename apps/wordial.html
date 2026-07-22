@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Wordial</title>
+<style>
+  :root{ --bg:#0e1016; --text:#e8ebf0; --sub:#8a93a6; --cell:#232838; --correct:#3aa35a; --present:#c99a2e; --absent:#31384a; --dial:#3f8bde; }
+  @media (prefers-color-scheme: light){ :root{ --bg:#f2f3f7; --text:#151a24; --sub:#5c6577; --cell:#dfe2ea; --correct:#4caf6c; --present:#d9ae3f; --absent:#c3c8d4; --dial:#2064c6; } }
+  *{ margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; user-select:none; }
+  html,body{ height:100%; overflow:hidden; touch-action:none; }
+  body{
+    font-family:-apple-system,"Helvetica Neue",Helvetica,Arial,sans-serif;
+    background:var(--bg); color:var(--text);
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:7px; padding:6px;
+  }
+  .title{ font-size:12px; font-weight:800; letter-spacing:.04em; }
+  .grid{ display:flex; flex-direction:column; gap:4px; }
+  .row{ display:flex; gap:4px; }
+  .cell{
+    width:min(7.2vw,7.2vh,30px); height:min(7.2vw,7.2vh,30px);
+    display:flex; align-items:center; justify-content:center;
+    background:var(--cell); border-radius:5px;
+    font-size:min(4.6vw,4.6vh,17px); font-weight:800;
+    outline:2px solid transparent; outline-offset:-2px;
+  }
+  .cell.correct{ background:var(--correct); color:#fff; }
+  .cell.present{ background:var(--present); color:#fff; }
+  .cell.absent{ background:var(--absent); color:var(--sub); }
+  .cell.dialing{ outline-color:var(--dial); color:var(--dial); }
+  .status{ font-size:10.5px; font-weight:700; color:var(--sub); text-align:center; min-height:14px; }
+  .hint{ font-size:9px; color:var(--sub); text-align:center; max-width:230px; }
+</style>
+</head>
+<body>
+  <div class="title">WORDIAL</div>
+  <div class="grid" id="grid"></div>
+  <div class="status" id="status"></div>
+  <div class="hint">Spin the wheel to dial a letter, press center to lock it in</div>
+
+<script>
+"use strict";
+// a modest built-in list of common 5-letter words — no external source
+const WORDS = [
+  'APPLE','BRAVE','CRANE','DIRTY','EAGER','FANCY','GRAPE','HAPPY','IDEAL','JOKER',
+  'KNOCK','LEMON','MANGO','NOBLE','OCEAN','PIANO','QUIET','RIVER','SHINY','TABLE',
+  'UNCLE','VIVID','WATER','XENON','YOUTH','ZEBRA','AMBER','BASIL','CHESS','DREAM',
+  'EARLY','FLAME','GHOST','HOVER','INBOX','JOLLY','KARMA','LIGHT','MERRY','NIGHT',
+  'OLIVE','PLANT','QUART','ROBOT','SNAKE','TIGER','ULTRA','VALVE','WHEAT','YIELD',
+  'BLEND','CLOUD','DRIFT','ELBOW','FROST','GLOBE','HONEY','IVORY','JUMBO','LATCH',
+  'LUCKY','MOTOR','NURSE','ORBIT','PULSE','QUILT','RANCH','SOLAR','TRUCK','UNZIP',
+  'VOICE','WITTY','YACHT','ZESTY','ANGLE','BRICK','CABLE','DELTA','ENJOY','FLESH',
+  'GRANT','HOTEL','INPUT','JUDGE','KNEEL','LODGE','MAPLE','NOVEL','OTTER','PANEL',
+  'QUOTE','RAISE','SHELF','THUMB','UPSET','VIRUS','WORLD','ABBEY','BLOOM','CRISP',
+];
+const N = WORDS.length;
+const ROWS = 6, COLS = 5;
+const ALPHA = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+
+const $grid = document.getElementById('grid');
+const $status = document.getElementById('status');
+
+let secret = '', row = 0, col = 0, letterIdx = 0, over = false, won = false;
+let cells = [];
+
+function buildGrid(){
+  $grid.innerHTML = '';
+  cells = [];
+  for(let r=0;r<ROWS;r++){
+    const rowEl = document.createElement('div'); rowEl.className='row';
+    const rowCells = [];
+    for(let c=0;c<COLS;c++){
+      const cell = document.createElement('div'); cell.className='cell';
+      rowEl.appendChild(cell);
+      rowCells.push(cell);
+    }
+    $grid.appendChild(rowEl);
+    cells.push(rowCells);
+  }
+}
+buildGrid();
+
+let ac = null;
+function ensureAudio(){ if(!ac){ try{ ac = new (window.AudioContext||window.webkitAudioContext)(); }catch(e){} } }
+function tick(){
+  if(!ac) return;
+  const t = ac.currentTime;
+  const o = ac.createOscillator(), g = ac.createGain();
+  o.type='square'; o.frequency.value = 1800;
+  g.gain.setValueAtTime(0.04, t); g.gain.exponentialRampToValueAtTime(0.0001, t+0.02);
+  o.connect(g).connect(ac.destination); o.start(t); o.stop(t+0.03);
+}
+function chime(win){
+  if(!ac) return;
+  const t = ac.currentTime;
+  const seq = win ? [523,659,784] : [300,250];
+  seq.forEach((f,i)=>{
+    const o = ac.createOscillator(), g = ac.createGain();
+    o.type='sine'; o.frequency.value = f;
+    g.gain.setValueAtTime(0.001, t+i*0.09);
+    g.gain.exponentialRampToValueAtTime(0.12, t+i*0.09+0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, t+i*0.09+0.22);
+    o.connect(g).connect(ac.destination);
+    o.start(t+i*0.09); o.stop(t+i*0.09+0.24);
+  });
+}
+
+function newGame(){
+  secret = WORDS[Math.floor(Math.random()*N)];
+  row = 0; col = 0; letterIdx = 0; over = false; won = false;
+  buildGrid();
+  paintDial();
+  $status.textContent = '';
+}
+function paintDial(){
+  if(over) return;
+  for(let c=0;c<COLS;c++) cells[row][c].classList.toggle('dialing', c===col);
+  cells[row][col].textContent = ALPHA[letterIdx];
+}
+
+function evaluateGuess(guess, secretWord){
+  const res = new Array(COLS).fill('absent');
+  const counts = {};
+  for(let i=0;i<COLS;i++){
+    if(guess[i]===secretWord[i]) res[i]='correct';
+    else counts[secretWord[i]] = (counts[secretWord[i]]||0)+1;
+  }
+  for(let i=0;i<COLS;i++){
+    if(res[i]==='correct') continue;
+    const ch = guess[i];
+    if(counts[ch] > 0){ res[i]='present'; counts[ch]--; }
+  }
+  return res;
+}
+
+function spin(dir, mult){
+  if(over) return;
+  ensureAudio();
+  letterIdx = ((letterIdx + dir*(mult||1)) % ALPHA.length + ALPHA.length) % ALPHA.length;
+  paintDial();
+  tick();
+}
+function confirm_(){
+  ensureAudio();
+  if(over){ newGame(); return; }
+  const cell = cells[row][col];
+  cell.classList.remove('dialing');
+  cell.textContent = ALPHA[letterIdx];
+  cell.dataset.letter = ALPHA[letterIdx];
+  col++;
+  if(navigator.vibrate) navigator.vibrate(6);
+  if(col < COLS){
+    letterIdx = 0;
+    paintDial();
+    return;
+  }
+  // row complete — evaluate
+  let guess = '';
+  for(let c=0;c<COLS;c++) guess += cells[row][c].dataset.letter;
+  const res = evaluateGuess(guess, secret);
+  res.forEach((r,c)=> cells[row][c].classList.add(r));
+
+  if(guess===secret){
+    over = true; won = true;
+    chime(true);
+    if(navigator.vibrate) navigator.vibrate([10,30,10,30,10]);
+    $status.textContent = 'Solved in '+(row+1)+'! Press center to play again';
+    return;
+  }
+  row++;
+  if(row>=ROWS){
+    over = true; won = false;
+    chime(false);
+    if(navigator.vibrate) navigator.vibrate([8,50,8]);
+    $status.textContent = 'Out of tries — it was '+secret+'. Press center to retry';
+    return;
+  }
+  col = 0; letterIdx = 0;
+  paintDial();
+}
+
+window.addEventListener('message', (e)=>{
+  if(!e.data || e.data.channel!=='hplay') return;
+  if(e.data.type==='wheel') spin(e.data.dir, e.data.mult);
+  if(e.data.type==='select') confirm_();
+});
+document.addEventListener('keydown', e=>{
+  if(e.key==='ArrowUp'||e.key==='ArrowRight') spin(1,1);
+  else if(e.key==='ArrowDown'||e.key==='ArrowLeft') spin(-1,1);
+  else if(e.key==='Enter'||e.key===' ') confirm_();
+});
+document.body.addEventListener('click', confirm_);
+
+newGame();
+</script>
+</body>
+</html>
