@@ -11,7 +11,12 @@
     { "id": "orbit", "name": "Orbit Defense", "desc": "Wheel aims the turret, center fires", "file": "apps/orbit.html" },
     { "id": "echo", "name": "Echo", "desc": "Wheel-navigated color memory game", "file": "apps/echo.html" },
     { "id": "coil", "name": "Coil", "desc": "Wheel steers, don't run into yourself", "file": "apps/coil.html" },
-    { "id": "wordial", "name": "Wordial", "desc": "Dial letters with the wheel to guess the word", "file": "apps/wordial.html" }
+    { "id": "wordial", "name": "Wordial", "desc": "Dial letters with the wheel to guess the word", "file": "apps/wordial.html" },
+    { "id": "spinner", "name": "Spinner", "desc": "Wind up the wheel, release for a spin", "file": "apps/spinner.html" },
+    { "id": "safecracker", "name": "Safecracker", "desc": "Dial in the combo by feel — listen for warmth", "file": "apps/safecracker.html" },
+    { "id": "pulse", "name": "Pulse", "desc": "Wheel sets the speed, center hits the beat", "file": "apps/pulse.html" },
+    { "id": "blackout", "name": "Blackout", "desc": "Toggle puzzle — turn every light off", "file": "apps/blackout.html" },
+    { "id": "minefield", "name": "Minefield", "desc": "Wheel moves, center reveals — mind the mines", "file": "apps/minefield.html" }
   ],
   "themes": [
     { "id": "gold", "name": "Gold",

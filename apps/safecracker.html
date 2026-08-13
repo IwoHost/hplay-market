@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Safecracker</title>
+<style>
+  :root{ --bg:#0e1016; --text:#e8ebf0; --sub:#8a93a6; --cell:#1c2230; --warm:#e0a05a; --cold:#4a71e2; --ok:#5ac97a; --bad:#e0433a; }
+  @media (prefers-color-scheme: light){ :root{ --bg:#f2f3f7; --text:#151a24; --sub:#5c6577; --cell:#dfe2ea; --warm:#c4741f; --cold:#3355cc; --ok:#3aa35a; --bad:#c62015; } }
+  *{ margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; user-select:none; }
+  html,body{ height:100%; overflow:hidden; touch-action:none; }
+  body{
+    font-family:-apple-system,"Helvetica Neue",Helvetica,Arial,sans-serif;
+    background:var(--bg); color:var(--text);
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; padding:6px;
+  }
+  .title{ font-size:12px; font-weight:800; letter-spacing:.06em; }
+  .dials{ display:flex; gap:8px; }
+  .dial{
+    width:min(15vw,17vh,54px); height:min(19vw,21vh,68px);
+    background:var(--cell); border-radius:8px;
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px;
+    outline:2px solid transparent; outline-offset:-2px; position:relative; overflow:hidden;
+  }
+  .dial.active{ outline-color:var(--text); }
+  .dial .num{ font-size:min(7vw,8vh,26px); font-weight:800; font-variant-numeric:tabular-nums; }
+  .dial .warmth{
+    position:absolute; left:0; right:0; bottom:0; height:0%;
+    background:linear-gradient(180deg, var(--warm), var(--cold));
+    opacity:.55; transition:height .08s linear;
+  }
+  .dial.locked .num{ color:var(--ok); }
+  .status{ font-size:10.5px; font-weight:700; color:var(--sub); text-align:center; min-height:14px; }
+  .stats{ font-size:9.5px; color:var(--sub); text-align:center; }
+  .hint{ font-size:9px; color:var(--sub); text-align:center; max-width:230px; }
+</style>
+</head>
+<body>
+  <div class="title">SAFECRACKER</div>
+  <div class="dials" id="dials"></div>
+  <div class="status" id="status">Spin a dial — listen and watch for warmth</div>
+  <div class="stats" id="stats">Attempts: 0 · Best: —</div>
+  <div class="hint">Wheel spins the highlighted dial, center locks it in</div>
+
+<script>
+"use strict";
+const SLOTS = 3;
+const $dials = document.getElementById('dials');
+const $status = document.getElementById('status');
+const $stats = document.getElementById('stats');
+
+let dialEls = [], numEls = [], warmthEls = [];
+for(let i=0;i<SLOTS;i++){
+  const d = document.createElement('div'); d.className='dial';
+  const w = document.createElement('div'); w.className='warmth';
+  const n = document.createElement('div'); n.className='num'; n.textContent='0';
+  d.appendChild(w); d.appendChild(n);
+  $dials.appendChild(d);
+  dialEls.push(d); numEls.push(n); warmthEls.push(w);
+}
+
+let ac = null;
+function ensureAudio(){ if(!ac){ try{ ac = new (window.AudioContext||window.webkitAudioContext)(); }catch(e){} } }
+function warmthTone(closeness){
+  // closeness: 0 (far) .. 1 (exact)
+  if(!ac) return;
+  const t = ac.currentTime;
+  const o = ac.createOscillator(), g = ac.createGain();
+  o.type = 'sine';
+  o.frequency.value = 220 + closeness*closeness*900;
+  g.gain.setValueAtTime(0.02 + closeness*0.09, t);
+  g.gain.exponentialRampToValueAtTime(0.0001, t+0.09);
+  o.connect(g).connect(ac.destination);
+  o.start(t); o.stop(t+0.1);
+}
+function chime(win){
+  if(!ac) return;
+  const t = ac.currentTime;
+  const seq = win ? [392,523,659,784] : [260,190];
+  seq.forEach((f,i)=>{
+    const o = ac.createOscillator(), g = ac.createGain();
+    o.type='sine'; o.frequency.value=f;
+    g.gain.setValueAtTime(0.001, t+i*0.08);
+    g.gain.exponentialRampToValueAtTime(0.13, t+i*0.08+0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, t+i*0.08+0.22);
+    o.connect(g).connect(ac.destination);
+    o.start(t+i*0.08); o.stop(t+i*0.08+0.24);
+  });
+}
+
+let secret = [], dialed = [0,0,0], pos = 0, attempts = 0, best = null, solved = false;
+
+function newVault(){
+  secret = [0,0,0].map(()=>Math.floor(Math.random()*10));
+  dialed = [0,0,0]; pos = 0; attempts = 0; solved = false;
+  dialEls.forEach((d,i)=>{ d.classList.remove('locked'); numEls[i].textContent='0'; warmthEls[i].style.height='0%'; });
+  paintActive();
+  $status.textContent = 'New vault — spin a dial, listen for warmth';
+  $stats.textContent = 'Attempts: 0 · Best: '+(best===null?'—':best);
+}
+function paintActive(){ dialEls.forEach((d,i)=>d.classList.toggle('active', i===pos && !solved)); }
+
+function closenessFor(slot){
+  const diff = Math.abs(dialed[slot]-secret[slot]);
+  const circ = Math.min(diff, 10-diff);   // circular distance on a 0-9 dial
+  return 1 - circ/5;
+}
+function spin(dir, mult){
+  if(solved) return;
+  ensureAudio();
+  dialed[pos] = ((dialed[pos] + dir*(mult||1)) % 10 + 10) % 10;
+  numEls[pos].textContent = String(dialed[pos]);
+  const c = Math.max(0, closenessFor(pos));
+  warmthEls[pos].style.height = Math.round(c*100)+'%';
+  warmthTone(c);
+}
+function lockIn(){
+  ensureAudio();
+  if(solved){ newVault(); return; }
+  dialEls[pos].classList.add('locked');
+  if(navigator.vibrate) navigator.vibrate(6);
+  pos++;
+  if(pos < SLOTS){ paintActive(); $status.textContent = 'Dial '+(pos+1)+' of '+SLOTS; return; }
+
+  attempts++;
+  const correct = dialed.every((v,i)=>v===secret[i]);
+  if(correct){
+    solved = true;
+    best = best===null ? attempts : Math.min(best, attempts);
+    chime(true);
+    if(navigator.vibrate) navigator.vibrate([10,30,10,30,10]);
+    $status.textContent = 'Vault opens! '+attempts+' attempt'+(attempts===1?'':'s')+' — press center for a new vault';
+    $stats.textContent = 'Attempts: '+attempts+' · Best: '+best;
+    paintActive();
+  } else {
+    chime(false);
+    if(navigator.vibrate) navigator.vibrate([8,40,8]);
+    pos = 0;
+    dialEls.forEach(d=>d.classList.remove('locked'));
+    $status.textContent = 'Not quite — try again (attempt '+(attempts+1)+')';
+    $stats.textContent = 'Attempts: '+attempts+' · Best: '+(best===null?'—':best);
+    paintActive();
+  }
+}
+
+window.addEventListener('message', (e)=>{
+  if(!e.data || e.data.channel!=='hplay') return;
+  if(e.data.type==='wheel') spin(e.data.dir, e.data.mult);
+  if(e.data.type==='select') lockIn();
+});
+document.addEventListener('keydown', e=>{
+  if(e.key==='ArrowUp'||e.key==='ArrowRight') spin(1,1);
+  else if(e.key==='ArrowDown'||e.key==='ArrowLeft') spin(-1,1);
+  else if(e.key==='Enter'||e.key===' ') lockIn();
+});
+document.body.addEventListener('click', lockIn);
+
+newVault();
+</script>
+</body>
+</html>

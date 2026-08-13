@@ -95,7 +95,7 @@ window.addEventListener('message', (e)=>{
     focus = ((focus + e.data.dir*(e.data.mult||1)) % 9 + 9) % 9;
     render();
   }
-  if(e.data.type==='select') place(focus);
+  if(e.data.type==='select'){ if(over) newGame(); else place(focus); }
 });
 
 newGame();

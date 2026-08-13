@@ -153,7 +153,7 @@ $c.addEventListener('pointercancel', ()=>{ dragging = false; });
 
 window.addEventListener('message', (e)=>{
   if(!e.data || e.data.channel!=='hplay') return;
-  if(e.data.type==='wheel') movePaddle(e.data.dir*(e.data.mult||1)*7);
+  if(e.data.type==='wheel') movePaddle(e.data.dir*(e.data.mult||1)*10);
   if(e.data.type==='select') launch();
 });
 

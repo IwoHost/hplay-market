@@ -112,7 +112,7 @@ $toggle.addEventListener('click', toggle);
 
 window.addEventListener('message', (e)=>{
   if(!e.data || e.data.channel!=='hplay') return;
-  if(e.data.type==='wheel') setBpm(bpm + e.data.dir*(e.data.mult||1));
+  if(e.data.type==='wheel') setBpm(bpm + e.data.dir*(e.data.mult||1)*2);
   if(e.data.type==='select') toggle();
 });
 </script>

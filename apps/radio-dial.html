@@ -394,7 +394,7 @@ window.addEventListener('message', (e)=>{
   if(e.data.type==='wheel'){
     ensureAudio();
     lastDir = e.data.dir;
-    setFreq(freq + e.data.dir*(e.data.mult||1)*0.12);
+    setFreq(freq + e.data.dir*(e.data.mult||1)*0.2);
   }
   if(e.data.type==='select') seek(lastDir);
   if(e.data.type==='audio'){

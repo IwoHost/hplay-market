@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Spinner</title>
+<style>
+  :root{ --bg:#0e1016; --text:#e8ebf0; --sub:#8a93a6; --hub:#1c2230; --ptr:#e8ebf0; }
+  @media (prefers-color-scheme: light){ :root{ --bg:#f2f3f7; --text:#151a24; --sub:#5c6577; --hub:#ffffff; --ptr:#151a24; } }
+  *{ margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; user-select:none; }
+  html,body{ height:100%; overflow:hidden; touch-action:none; }
+  body{
+    font-family:-apple-system,"Helvetica Neue",Helvetica,Arial,sans-serif;
+    background:var(--bg); color:var(--text);
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; padding:6px;
+  }
+  .stats{ display:flex; justify-content:space-between; width:min(70vw,72vh); max-width:250px; font-size:10.5px; font-weight:700; color:var(--sub); }
+  .arena{ position:relative; width:min(56vw,62vh); max-width:210px; aspect-ratio:1; }
+  .ptr{
+    position:absolute; left:50%; top:-4%; transform:translateX(-50%);
+    width:0; height:0; border-left:7px solid transparent; border-right:7px solid transparent;
+    border-top:11px solid var(--ptr); z-index:3;
+  }
+  .wheel{
+    position:absolute; inset:0; border-radius:50%; overflow:hidden;
+    box-shadow:0 0 0 3px var(--hub) inset, 0 4px 16px rgba(0,0,0,.35);
+  }
+  .wheel .lab{
+    position:absolute; color:#fff; font-weight:800; font-size:9px; text-shadow:0 1px 2px rgba(0,0,0,.5);
+    left:50%; top:50%; transform-origin:0 0;
+  }
+  .hub{
+    position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
+    width:26%; aspect-ratio:1; border-radius:50%; background:var(--hub);
+    display:flex; align-items:center; justify-content:center; z-index:2;
+    box-shadow:0 2px 8px rgba(0,0,0,.3);
+    font-size:12px; font-weight:800; text-align:center; padding:4%; line-height:1.1;
+  }
+  .status{ font-size:10.5px; font-weight:700; color:var(--sub); text-align:center; min-height:14px; }
+  .hint{ font-size:9px; color:var(--sub); text-align:center; max-width:230px; }
+</style>
+</head>
+<body>
+  <div class="stats"><span id="score">Score: 0</span><span id="best">Best spin: 0</span></div>
+  <div class="arena">
+    <div class="ptr"></div>
+    <div class="wheel" id="wheel"></div>
+    <div class="hub" id="hub">Wind up &amp; release</div>
+  </div>
+  <div class="status" id="status">Spin the wheel to wind up, then press center</div>
+  <div class="hint">Faster spinning before you release = more momentum</div>
+
+<script>
+"use strict";
+const SEGMENTS = [
+  {v:10,  c:'#e05a5a'}, {v:20,  c:'#e0a05a'}, {v:0,  c:'#2a2f3a'}, {v:50,  c:'#5ac97a'},
+  {v:10,  c:'#4ac0ff'}, {v:30,  c:'#e0d85a'}, {v:0,  c:'#2a2f3a'}, {v:100, c:'#a05ae0'},
+];
+const N = SEGMENTS.length;
+const segAngle = 360/N;
+
+const $wheel = document.getElementById('wheel');
+const $hub = document.getElementById('hub');
+const $status = document.getElementById('status');
+const $score = document.getElementById('score');
+const $best = document.getElementById('best');
+
+function buildWheel(){
+  let stops = [];
+  for(let i=0;i<N;i++){
+    stops.push(SEGMENTS[i].c+' '+(i*segAngle)+'deg '+((i+1)*segAngle)+'deg');
+  }
+  $wheel.style.background = 'conic-gradient(from 0deg, '+stops.join(',')+')';
+  for(let i=0;i<N;i++){
+    const lab = document.createElement('div');
+    lab.className = 'lab';
+    lab.textContent = SEGMENTS[i].v===0 ? 'BUST' : ('+'+SEGMENTS[i].v);
+    const midAngle = (i+0.5)*segAngle;
+    lab.style.transform = 'rotate('+midAngle+'deg) translate(0px, -78%) rotate('+(-midAngle)+'deg) translate(-50%,-50%)';
+    $wheel.appendChild(lab);
+  }
+}
+buildWheel();
+
+let ac = null;
+function ensureAudio(){ if(!ac){ try{ ac = new (window.AudioContext||window.webkitAudioContext)(); }catch(e){} } }
+function tick_(freq){
+  if(!ac) return;
+  const t = ac.currentTime;
+  const o = ac.createOscillator(), g = ac.createGain();
+  o.type='square'; o.frequency.value = freq||1200;
+  g.gain.setValueAtTime(0.05, t); g.gain.exponentialRampToValueAtTime(0.0001, t+0.03);
+  o.connect(g).connect(ac.destination); o.start(t); o.stop(t+0.04);
+}
+function resultChime(v){
+  if(!ac) return;
+  const t = ac.currentTime;
+  const seq = v===0 ? [260,180] : v>=100 ? [523,659,784,988] : v>=50 ? [523,659,784] : [440,554];
+  seq.forEach((f,i)=>{
+    const o = ac.createOscillator(), g = ac.createGain();
+    o.type='sine'; o.frequency.value=f;
+    g.gain.setValueAtTime(0.001, t+i*0.07);
+    g.gain.exponentialRampToValueAtTime(0.13, t+i*0.07+0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, t+i*0.07+0.2);
+    o.connect(g).connect(ac.destination);
+    o.start(t+i*0.07); o.stop(t+i*0.07+0.22);
+  });
+}
+
+let rotation = 0, velocity = 0, spinning = false;
+let energy = 0;
+const MAX_ENERGY = 40;
+const BASE_VEL = 260, ENERGY_TO_VEL = 22.5;
+const FRICTION_PER_SEC = 0.35, STOP_THRESH = 12;
+
+let score = 0, best = 0, spins = 0;
+function updateStats(){ $score.textContent = 'Score: '+score; $best.textContent = 'Best spin: '+best; }
+
+function windUp(dir, mult){
+  if(spinning) return;
+  const mag = Math.abs(dir*(mult||1));
+  energy = Math.min(MAX_ENERGY, energy + mag*3.2);
+  rotation += dir*(mult||1)*2.4;
+  tick_(900 + energy*8);
+  applyTransform();
+}
+function release(){
+  ensureAudio();
+  if(spinning) return;
+  velocity = BASE_VEL + energy*ENERGY_TO_VEL;
+  energy = 0;
+  spinning = true;
+  $hub.textContent = '…';
+  $status.textContent = 'Spinning…';
+}
+
+function landedIndex(){
+  const normalized = ((360 - (rotation%360)) % 360 + 360) % 360;
+  return Math.floor(normalized/segAngle) % N;
+}
+function applyTransform(){ $wheel.style.transform = 'rotate('+rotation+'deg)'; }
+
+let lastTs = null;
+function loop(ts){
+  const dt = lastTs===null ? 16 : Math.min(50, ts-lastTs);
+  lastTs = ts;
+  if(!spinning) energy = Math.max(0, energy - dt/70);
+
+  if(spinning){
+    rotation += velocity*dt/1000;
+    velocity *= Math.pow(FRICTION_PER_SEC, dt/1000);
+    applyTransform();
+    if(velocity < STOP_THRESH){
+      spinning = false; velocity = 0;
+      const idx = landedIndex();
+      const val = SEGMENTS[idx].v;
+      spins++;
+      if(val===0){
+        $hub.textContent = 'BUST';
+        $status.textContent = 'Landed on Bust — spin again';
+      } else {
+        score += val;
+        best = Math.max(best, val);
+        $hub.textContent = '+'+val;
+        $status.textContent = 'Nice! Total score '+score;
+      }
+      resultChime(val);
+      if(navigator.vibrate) navigator.vibrate(val===0 ? [10,40,10] : 14);
+      updateStats();
+    }
+  }
+  requestAnimationFrame(loop);
+}
+
+window.addEventListener('message', (e)=>{
+  if(!e.data || e.data.channel!=='hplay') return;
+  if(e.data.type==='wheel'){ ensureAudio(); windUp(e.data.dir, e.data.mult); }
+  if(e.data.type==='select') release();
+});
+
+// mouse/touch: drag around the wheel to wind up, release finger to spin, for testing outside Hplay
+let dragging=false, lastAng=0;
+function angOf(x,y){ const r=$wheel.getBoundingClientRect(); return Math.atan2(y-(r.top+r.height/2), x-(r.left+r.width/2)); }
+document.addEventListener('pointerdown', e=>{ ensureAudio(); dragging=true; lastAng=angOf(e.clientX,e.clientY); });
+document.addEventListener('pointermove', e=>{
+  if(!dragging) return;
+  const a = angOf(e.clientX,e.clientY);
+  let d = (a-lastAng)*180/Math.PI; if(d>180)d-=360; if(d<-180)d+=360;
+  lastAng = a;
+  windUp(d>0?1:-1, Math.min(6, Math.abs(d)/4));
+});
+document.addEventListener('pointerup', ()=>{ dragging=false; release(); });
+
+updateStats();
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

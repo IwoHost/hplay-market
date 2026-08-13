@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Pulse</title>
+<style>
+  :root{ --bg:#0d1016; --text:#e8ebf0; --sub:#8a93a6; --ring:#232838; --zone:#5ac97a; --dot:#4ac0ff; --bad:#e0433a; }
+  @media (prefers-color-scheme: light){ :root{ --bg:#eef1f6; --text:#151a24; --sub:#5c6577; --ring:#d4d9e3; --zone:#3aa35a; --dot:#0f7fc4; --bad:#c62015; } }
+  *{ margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; user-select:none; }
+  html,body{ height:100%; overflow:hidden; touch-action:none; }
+  body{
+    font-family:-apple-system,"Helvetica Neue",Helvetica,Arial,sans-serif;
+    background:var(--bg); color:var(--text);
+    display:flex; flex-direction:column; align-items:center;
+  }
+  .hud{ display:flex; justify-content:space-between; width:100%; padding:7px 12px; font-size:11px; font-weight:700; color:var(--sub); }
+  canvas{ display:block; touch-action:none; }
+  .msg{
+    position:fixed; left:50%; top:44%; transform:translate(-50%,-50%);
+    text-align:center; pointer-events:none;
+  }
+  .msg .big{ font-size:16px; font-weight:800; margin-bottom:4px; }
+  .msg .small{ font-size:11px; color:var(--sub); }
+</style>
+</head>
+<body>
+  <div class="hud">
+    <span id="score">Score: 0</span>
+    <span id="lives">Lives: 3</span>
+  </div>
+  <canvas id="c"></canvas>
+  <div class="msg" id="msg"></div>
+
+<script>
+"use strict";
+const $c = document.getElementById('c');
+const ctx = $c.getContext('2d');
+const $score = document.getElementById('score');
+const $lives = document.getElementById('lives');
+const $msg = document.getElementById('msg');
+
+let W=0,H=0,cx=0,cy=0,R=0;
+function resize(){
+  const DPR = window.devicePixelRatio||1;
+  W = window.innerWidth; H = window.innerHeight-32;
+  $c.width=W*DPR; $c.height=H*DPR;
+  $c.style.width=W+'px'; $c.style.height=H+'px';
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+  cx=W/2; cy=H/2; R=Math.min(W,H)/2-14;
+}
+window.addEventListener('resize', resize);
+
+let ac=null;
+function ensureAudio(){ if(!ac){ try{ ac=new (window.AudioContext||window.webkitAudioContext)(); }catch(e){} } }
+function blip(freq,dur,peak){
+  if(!ac) return;
+  const t=ac.currentTime;
+  const o=ac.createOscillator(), g=ac.createGain();
+  o.type='square'; o.frequency.value=freq;
+  g.gain.setValueAtTime(peak||0.07,t);
+  g.gain.exponentialRampToValueAtTime(0.0001, t+(dur||0.08));
+  o.connect(g).connect(ac.destination);
+  o.start(t); o.stop(t+(dur||0.08)+0.02);
+}
+
+const ZONE_CENTER = -Math.PI/2;   // fixed at the top
+let zoneWidth = 0.62;             // radians, shrinks slightly as score grows
+const MIN_ZONE = 0.28;
+
+let angle = 0;
+let angSpeed = 1.6;                // radians/sec
+const MIN_SPEED = 0.7, MAX_SPEED = 4.2, SPEED_STEP = 0.28;
+
+let score=0, lives=3, combo=0, running=false, over=false;
+
+function reset(){
+  angle = 0; angSpeed = 1.6; zoneWidth = 0.62;
+  score=0; lives=3; combo=0; over=false; running=false;
+  updateHud();
+  showMsg('Pulse', 'Wheel sets the speed, press center on the green zone');
+}
+function updateHud(){ $score.textContent='Score: '+score; $lives.textContent='Lives: '+lives; }
+function showMsg(big,small){ $msg.innerHTML='<div class="big">'+big+'</div><div class="small">'+(small||'')+'</div>'; }
+function hideMsg(){ $msg.innerHTML=''; }
+
+function angDist(a,b){
+  let d = Math.abs(a-b) % (Math.PI*2);
+  if(d>Math.PI) d = Math.PI*2-d;
+  return d;
+}
+function adjustSpeed(dir,mult){
+  angSpeed = Math.max(MIN_SPEED, Math.min(MAX_SPEED, angSpeed + dir*(mult||1)*SPEED_STEP));
+}
+function hit(){
+  ensureAudio();
+  if(over){ reset(); return; }
+  if(!running){ running=true; hideMsg(); return; }
+  const d = angDist(angle, ZONE_CENTER);
+  if(d <= zoneWidth/2){
+    const precision = 1 - d/(zoneWidth/2);   // 0..1, 1 = dead center
+    combo++;
+    const mult_ = 1 + Math.floor(combo/5)*0.5;
+    const pts = Math.round((10 + precision*20) * mult_);
+    score += pts;
+    updateHud();
+    blip(700 + precision*500, 0.09, 0.08);
+    if(navigator.vibrate) navigator.vibrate(10);
+    zoneWidth = Math.max(MIN_ZONE, zoneWidth - 0.012);
+  } else {
+    combo = 0;
+    lives--; updateHud();
+    blip(160, 0.2, 0.09);
+    if(navigator.vibrate) navigator.vibrate([8,40,8]);
+    if(lives<=0){
+      over=true; running=false;
+      showMsg('Flatlined', 'Score '+score+' — press center to retry');
+    }
+  }
+}
+
+let lastTs=null;
+function step(ts){
+  const dt = lastTs===null?16:Math.min(50, ts-lastTs);
+  lastTs = ts;
+  if(running && !over) angle = (angle + angSpeed*dt/1000) % (Math.PI*2);
+  draw();
+  requestAnimationFrame(step);
+}
+function draw(){
+  ctx.clearRect(0,0,W,H);
+  ctx.save(); ctx.translate(cx,cy);
+
+  ctx.strokeStyle = getComputedStyle(document.body).getPropertyValue('--ring');
+  ctx.lineWidth = 8;
+  ctx.beginPath(); ctx.arc(0,0,R,0,Math.PI*2); ctx.stroke();
+
+  ctx.strokeStyle = getComputedStyle(document.body).getPropertyValue('--zone');
+  ctx.lineWidth = 10;
+  ctx.beginPath(); ctx.arc(0,0,R, ZONE_CENTER-zoneWidth/2, ZONE_CENTER+zoneWidth/2); ctx.stroke();
+
+  const px = Math.cos(angle)*R, py = Math.sin(angle)*R;
+  ctx.fillStyle = getComputedStyle(document.body).getPropertyValue('--dot');
+  ctx.beginPath(); ctx.arc(px,py,8,0,Math.PI*2); ctx.fill();
+
+  ctx.fillStyle = getComputedStyle(document.body).color;
+  ctx.font = '700 11px -apple-system,Helvetica,Arial,sans-serif';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText('x'+(1+Math.floor(combo/5)*0.5).toFixed(1)+'  ·  speed '+angSpeed.toFixed(1), 0, 0);
+  ctx.restore();
+}
+
+window.addEventListener('message', (e)=>{
+  if(!e.data || e.data.channel!=='hplay') return;
+  if(e.data.type==='wheel'){ ensureAudio(); adjustSpeed(e.data.dir, e.data.mult); }
+  if(e.data.type==='select') hit();
+});
+$c.addEventListener('pointerdown', hit);
+
+resize();
+reset();
+requestAnimationFrame(step);
+</script>
+</body>
+</html>
