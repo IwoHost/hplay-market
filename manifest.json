@@ -16,7 +16,8 @@
     { "id": "safecracker", "name": "Safecracker", "desc": "Dial in the combo by feel — listen for warmth", "file": "apps/safecracker.html" },
     { "id": "pulse", "name": "Pulse", "desc": "Wheel sets the speed, center hits the beat", "file": "apps/pulse.html" },
     { "id": "blackout", "name": "Blackout", "desc": "Toggle puzzle — turn every light off", "file": "apps/blackout.html" },
-    { "id": "minefield", "name": "Minefield", "desc": "Wheel moves, center reveals — mind the mines", "file": "apps/minefield.html" }
+    { "id": "minefield", "name": "Minefield", "desc": "Wheel moves, center reveals — mind the mines", "file": "apps/minefield.html" },
+    { "id": "youtube", "name": "YouTube", "desc": "Save links, wheel seeks, center plays or pauses", "file": "apps/youtube.html" }
   ],
   "themes": [
     { "id": "gold", "name": "Gold",

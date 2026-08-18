@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>YouTube</title>
+<style>
+  :root{ --bg:#0e1016; --text:#e8ebf0; --sub:#8a93a6; --line:#232838; --accent:#ff4b4b; --mono-bg:#1c2230; }
+  @media (prefers-color-scheme: light){ :root{ --bg:#f4f5f7; --text:#1c1f24; --sub:#5a5e66; --line:#e2e5e9; --accent:#e0342a; --mono-bg:#eef1f5; } }
+  *{ margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body{ height:100%; overflow:hidden; }
+  body{
+    font-family:-apple-system,"Helvetica Neue",Helvetica,Arial,sans-serif;
+    background:var(--bg); color:var(--text); line-height:1.35;
+    display:flex; flex-direction:column;
+  }
+  .topbar{ display:flex; align-items:center; justify-content:space-between; padding:7px 10px; font-size:11px; font-weight:800; letter-spacing:.03em; border-bottom:1px solid var(--line); flex:0 0 auto; }
+  .topbar .backBtn{ font-size:10.5px; font-weight:700; color:var(--accent); padding:3px 8px; border-radius:999px; background:var(--mono-bg); }
+  .view{ flex:1; min-height:0; overflow:auto; }
+  .view.hidden{ display:none; }
+
+  .row{ display:flex; align-items:center; gap:8px; padding:8px 10px; border-bottom:1px solid var(--line); font-size:12px; font-weight:600; user-select:none; }
+  .row .lab{ flex:1; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+  .row .sub{ color:var(--sub); font-size:10px; font-weight:500; }
+  .row.add{ color:var(--accent); font-weight:800; }
+  .row.wnav{ outline:2px solid var(--accent); outline-offset:-2px; border-radius:4px; }
+  .empty{ color:var(--sub); font-size:11.5px; padding:14px 10px; text-align:center; }
+
+  .form{ padding:12px 12px; display:flex; flex-direction:column; gap:10px; }
+  .field label{ display:block; font-size:9.5px; font-weight:700; color:var(--sub); text-transform:uppercase; letter-spacing:.05em; margin-bottom:4px; }
+  .field input{
+    width:100%; font-family:inherit; font-size:12.5px; font-weight:600; color:var(--text);
+    background:var(--mono-bg); border:1px solid var(--line); border-radius:7px; padding:7px 9px; outline:none;
+  }
+  .field input.wnav{ outline:2px solid var(--accent); outline-offset:0; border-color:var(--accent); }
+  .btnRow{ display:flex; gap:8px; margin-top:2px; }
+  .btnRow button{
+    flex:1; border:none; font-family:inherit; font-weight:700; font-size:12px; padding:8px 0; border-radius:999px;
+    background:var(--mono-bg); color:var(--text);
+  }
+  .btnRow button.primary{ background:var(--accent); color:#fff; }
+  .btnRow button.wnav{ outline:2px solid var(--text); outline-offset:-2px; }
+  .hint{ color:var(--sub); font-size:9.5px; padding:0 12px 10px; }
+
+  .playerWrap{ padding:8px; display:flex; flex-direction:column; gap:7px; flex:1; min-height:0; }
+  .playerBox{ position:relative; width:100%; aspect-ratio:16/9; background:#000; border-radius:6px; overflow:hidden; flex:0 0 auto; }
+  .playerBox iframe{ position:absolute; inset:0; width:100%; height:100%; border:0; }
+  .nowTitle{ font-size:11.5px; font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .ctrlHint{ color:var(--sub); font-size:9.5px; text-align:center; margin-top:auto; }
+</style>
+</head>
+<body>
+  <div class="topbar">
+    <span>YOUTUBE</span>
+    <span class="backBtn hidden" id="backBtn">◀ Videos</span>
+  </div>
+
+  <div class="view" id="listView">
+    <div class="row add" id="addRow"><span class="lab">Add Video…</span></div>
+    <div id="videoRows"></div>
+  </div>
+
+  <div class="view hidden" id="addView">
+    <div class="form">
+      <div class="field"><label>YouTube link or video ID</label><input id="urlInput" type="text" placeholder="https://youtube.com/watch?v=..." autocomplete="off" autocorrect="off" spellcheck="false"></div>
+      <div class="field"><label>Title (optional)</label><input id="titleInput" type="text" placeholder="My video" autocomplete="off" autocorrect="off" spellcheck="false"></div>
+      <div class="btnRow"><button id="cancelBtn">Cancel</button><button id="saveBtn" class="primary">Save</button></div>
+    </div>
+    <div class="hint">Paste any YouTube link — watch, youtu.be, or shorts all work</div>
+  </div>
+
+  <div class="view hidden" id="playerView">
+    <div class="playerWrap">
+      <div class="nowTitle" id="nowTitle"></div>
+      <div class="playerBox"><div id="player"></div></div>
+      <div class="ctrlHint">Wheel seeks ±10s, center plays or pauses</div>
+    </div>
+  </div>
+
+<script>
+"use strict";
+const $listView = document.getElementById('listView');
+const $addView = document.getElementById('addView');
+const $playerView = document.getElementById('playerView');
+const $videoRows = document.getElementById('videoRows');
+const $addRow = document.getElementById('addRow');
+const $backBtn = document.getElementById('backBtn');
+const $urlInput = document.getElementById('urlInput');
+const $titleInput = document.getElementById('titleInput');
+const $saveBtn = document.getElementById('saveBtn');
+const $cancelBtn = document.getElementById('cancelBtn');
+const $nowTitle = document.getElementById('nowTitle');
+
+// session-only, like every other app here — nothing is written to persistent storage
+let videos = [];
+let mode = 'list';   // list | add | player
+
+function extractVideoId(input){
+  input = (input||'').trim();
+  if(/^[a-zA-Z0-9_-]{11}$/.test(input)) return input;
+  const m = input.match(/(?:[?&]v=|\/embed\/|\/shorts\/|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
+  return m ? m[1] : null;
+}
+
+function showView(v){
+  mode = v;
+  $listView.classList.toggle('hidden', v!=='list');
+  $addView.classList.toggle('hidden', v!=='add');
+  $playerView.classList.toggle('hidden', v!=='player');
+  $backBtn.classList.toggle('hidden', v!=='player');
+  if(v==='list') setFocus([$addRow, ...$videoRows.querySelectorAll('.row')]);
+  if(v==='add'){ $urlInput.value=''; $titleInput.value=''; setFocus([$urlInput, $titleInput, $saveBtn, $cancelBtn]); }
+}
+
+function renderVideoRows(){
+  $videoRows.innerHTML = videos.length ? '' : '';
+  if(!videos.length){
+    $videoRows.innerHTML = '<div class="empty">No videos yet — add one above</div>';
+  } else {
+    $videoRows.innerHTML = videos.map((v,i)=>
+      `<div class="row" data-i="${i}"><span class="lab">${esc(v.title)}</span><span class="sub">${esc(v.id)}</span></div>`
+    ).join('');
+  }
+}
+function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+/* ---------- wheel-focus navigation (moves a highlight, center activates it) ---------- */
+let focusItems = [], focusIdx = 0;
+function setFocus(items){ focusItems = items.filter(Boolean); focusIdx = 0; paintFocus(); }
+function paintFocus(){
+  focusItems.forEach((el,i)=>el.classList.toggle('wnav', i===focusIdx));
+  const el = focusItems[focusIdx];
+  if(el && el.scrollIntoView) el.scrollIntoView({block:'nearest'});
+}
+function moveFocus(dir, mult){
+  if(!focusItems.length) return;
+  focusIdx = Math.max(0, Math.min(focusItems.length-1, focusIdx + dir*(mult||1)));
+  paintFocus();
+}
+function activateFocus(){
+  const el = focusItems[focusIdx];
+  if(el) el.click();
+}
+
+/* ---------- add video ---------- */
+$addRow.addEventListener('click', ()=>showView('add'));
+$cancelBtn.addEventListener('click', ()=>showView('list'));
+$saveBtn.addEventListener('click', ()=>{
+  const id = extractVideoId($urlInput.value);
+  if(!id) return;
+  const title = $titleInput.value.trim() || ('Video ' + (videos.length+1));
+  videos.push({ id, title });
+  renderVideoRows();
+  showView('list');
+});
+$urlInput.addEventListener('click', ()=>$urlInput.focus());
+$titleInput.addEventListener('click', ()=>$titleInput.focus());
+
+/* ---------- player (official YouTube IFrame Player API) ---------- */
+let ytPlayer = null, ytReady = false, pendingVideo = null;
+const tag = document.createElement('script');
+tag.src = 'https://www.youtube.com/iframe_api';
+document.body.appendChild(tag);
+window.onYouTubeIframeAPIReady = function(){
+  ytPlayer = new YT.Player('player', {
+    playerVars: { playsinline: 1, rel: 0 },
+    events: {
+      onReady: ()=>{ ytReady = true; if(pendingVideo){ ytPlayer.loadVideoById(pendingVideo); pendingVideo=null; } }
+    }
+  });
+};
+
+function playVideo(v){
+  $nowTitle.textContent = v.title;
+  showView('player');
+  if(ytReady && ytPlayer){ ytPlayer.loadVideoById(v.id); }
+  else { pendingVideo = v.id; }
+}
+$videoRows.addEventListener('click', e=>{
+  const row = e.target.closest('.row[data-i]'); if(!row) return;
+  const v = videos[Number(row.dataset.i)]; if(v) playVideo(v);
+});
+$backBtn.addEventListener('click', ()=>showView('list'));
+
+function togglePlayPause(){
+  if(!ytReady || !ytPlayer) return;
+  const state = ytPlayer.getPlayerState();
+  if(state===1) ytPlayer.pauseVideo(); else ytPlayer.playVideo();
+}
+function seek(dir, mult){
+  if(!ytReady || !ytPlayer) return;
+  const t = ytPlayer.getCurrentTime() || 0;
+  ytPlayer.seekTo(Math.max(0, t + dir*(mult||1)*10), true);
+}
+
+/* ---------- click-wheel bridge ---------- */
+window.addEventListener('message', (e)=>{
+  if(!e.data || e.data.channel!=='hplay') return;
+  if(e.data.type==='wheel'){
+    if(mode==='player') seek(e.data.dir, e.data.mult);
+    else moveFocus(e.data.dir, e.data.mult);
+  }
+  if(e.data.type==='select'){
+    if(mode==='player') togglePlayPause();
+    else activateFocus();
+  }
+});
+
+renderVideoRows();
+showView('list');
+</script>
+</body>
+</html>
