@@ -22,7 +22,9 @@ decals/         images referenced from manifest.json's decals list
 ```jsonc
 {
   "apps": [
-    { "id": "tuner", "name": "Tuner", "desc": "Guitar tuner", "file": "apps/tuner.html" }
+    { "id": "tuner", "name": "Tuner", "desc": "Guitar tuner", "file": "apps/tuner.html" },
+    { "id": "snake", "name": "Snake", "desc": "Needs a d-pad", "file": "apps/snake.html",
+      "controls": "dpad" }
   ],
   "themes": [
     {
@@ -44,6 +46,13 @@ decals/         images referenced from manifest.json's decals list
   (`sandbox="allow-scripts allow-forms allow-pointer-lock"`, no `allow-same-origin`) — it can't touch
   the user's library, storage, or the rest of the app directly, except through the read-only bridge
   below.
+- **apps**, `controls`: `"wheel"` (the default, omit it) or `"dpad"`. A d-pad app makes Hplay put a
+  Game Boy-style cross and A / B / ESC buttons on the front of the player while the app is open, and
+  sends every press as `{channel:'hplay', type:'pad', key}` where `key` is `up`, `down`, `left`,
+  `right`, `a`, `b` or `esc`. There is no key-repeat and no key-up — one message per press — so a
+  d-pad app wants tap-per-step controls rather than hold-to-move. ESC is the app's own back button:
+  answer it with `{channel:'hplay', type:'handled'}` if you used it, and Hplay will offer to leave
+  the app if you did not, so nobody gets stuck inside. Holding ESC always offers to leave.
 - **themes**: `b` = body gradient stops (4 colors), `w`/`c` = click-wheel gradient stops (4 + 3
   colors). Optional `lab`/`labsh` style the wheel's text labels; both default sensibly if omitted.
 - **decals**: `file` is a plain PNG/SVG image (no code, so no sandboxing needed). `x`/`y` are position

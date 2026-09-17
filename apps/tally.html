@@ -1,0 +1,2191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Tally</title>
+<style>
+  /* Always dark. This one is not a day game. */
+  :root{
+    --ink:#04060a;          /* the night outside the lamp */
+    --stone:#1b2029;        /* walls, sleepers, the box */
+    --stone2:#232a35;
+    --flame:#f0b054;        /* the hand lamp */
+    --flame2:#8a5d24;
+    --chalk:#e9e3d6;        /* tally marks, writing */
+    --sub:#7d8494;
+    --red:#d8453a;          /* the signal, and blood on the ledger */
+    --cold:#5e7d92;         /* rails, frost, the far lamps */
+    --void:#000;
+  }
+  *{ margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; user-select:none; }
+  html,body{ height:100%; overflow:hidden; touch-action:none; background:var(--ink); }
+  body{
+    font-family:Georgia,"Times New Roman",serif;
+    color:var(--chalk);
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    gap:3px; padding:4px 5px;
+  }
+
+  /* ---- top strip: its gate, your lamp, your pocket. No numbers anywhere. ---- */
+  .hud{
+    width:100%; max-width:460px; display:flex; align-items:center; gap:8px;
+    font-size:9.5px; letter-spacing:.03em; color:var(--sub);
+    height:13px; overflow:hidden; white-space:nowrap;
+  }
+  .hud .seg{ display:flex; align-items:center; gap:4px; }
+  .hud .cap{ text-transform:uppercase; font-family:-apple-system,Helvetica,Arial,sans-serif;
+             font-size:7.5px; letter-spacing:.12em; opacity:.62; }
+  .hud .grow{ flex:1 1 auto; }
+  .gate{ display:inline-block; color:var(--chalk); }
+  .gate svg{ display:block; }
+  .flame{ width:26px; height:6px; border-radius:3px; background:#1a1d24; overflow:hidden; box-shadow:inset 0 0 0 1px #262b34; }
+  .flame i{ display:block; height:100%; background:linear-gradient(90deg,var(--flame2),var(--flame)); }
+  .pocket{ color:var(--chalk); font-style:italic; }
+
+  /* ---- the world ---- */
+  .stage{ position:relative; line-height:0; }
+  canvas{ display:block; background:var(--void); border-radius:3px; }
+  .vig{ position:absolute; inset:0; pointer-events:none; border-radius:3px;
+        box-shadow:inset 0 0 34px 12px rgba(0,0,0,.92); }
+
+  /* ---- dialogue ---- */
+  .box{
+    position:absolute; left:0; right:0; bottom:0;
+    background:linear-gradient(180deg, rgba(4,6,10,.02), rgba(4,6,10,.90) 22%, rgba(4,6,10,.96));
+    padding:9px 10px 8px; line-height:1.42; border-radius:0 0 3px 3px;
+    display:none;
+  }
+  .box.on{ display:block; }
+  .who{ font-family:-apple-system,Helvetica,Arial,sans-serif; font-size:7.5px; letter-spacing:.14em;
+        text-transform:uppercase; color:var(--flame); opacity:.85; margin-bottom:3px; }
+  .who.it{ color:var(--red); }
+  .txt{ font-size:11px; color:#ded8cc; min-height:2.9em; }
+  .txt em{ color:var(--chalk); font-style:italic; }
+  .txt b{ color:var(--flame); font-weight:400; font-style:italic; }
+  .cue{ position:absolute; right:9px; bottom:5px; font-size:8px; color:var(--sub); opacity:0; }
+  .cue.on{ opacity:.9; animation:blink 1.6s infinite; }
+  @keyframes blink{ 0%,60%{opacity:.9} 80%,100%{opacity:.25} }
+
+  /* ---- choices ---- */
+  .choices{ position:absolute; left:0; right:0; bottom:0; padding:7px 9px 8px; line-height:1.3;
+            background:linear-gradient(180deg, rgba(4,6,10,.04), rgba(4,6,10,.93) 18%, rgba(4,6,10,.98));
+            display:none; border-radius:0 0 3px 3px; }
+  .choices.on{ display:block; }
+  .ch{ font-size:10.5px; padding:2px 4px 2px 13px; position:relative; color:#9aa0ad; line-height:1.3; }
+  .ch.sel{ color:var(--chalk); }
+  .ch.sel:before{ content:"\276F"; position:absolute; left:2px; top:2px; color:var(--flame); font-size:9px; }
+  .ch.gone{ color:#3c414c; font-style:italic; }
+
+  /* ---- the whisper line under the stage ---- */
+  .tick{ height:12px; width:100%; max-width:460px; text-align:center;
+         font-size:10px; letter-spacing:.22em; color:var(--red);
+         text-transform:lowercase; opacity:.9; overflow:hidden; white-space:nowrap; }
+  .tick.far{ color:#5a2f2c; }
+
+  /* ---- title / chapter / ending cards ---- */
+  .veil{ position:absolute; inset:0; background:rgba(2,3,6,.93); border-radius:3px;
+         display:flex; flex-direction:column; align-items:center; justify-content:center;
+         text-align:center; padding:12px 16px; gap:6px; line-height:1.35; }
+  .veil.off{ display:none; }
+  .veil .big{ font-size:min(27px,9vw); letter-spacing:.3em; text-indent:.3em; color:var(--chalk); font-weight:400; }
+  .veil .rule{ width:54px; height:1px; background:var(--flame); opacity:.5; }
+  .veil .small{ font-size:min(10.5px,3.6vw); color:#a9a294; max-width:300px; line-height:1.5; font-style:italic; }
+  .veil .keys{ font-size:9px; color:var(--sub); margin-top:3px; font-family:-apple-system,Helvetica,Arial,sans-serif; letter-spacing:.06em; }
+  .veil .keys span{ color:var(--flame); }
+  .veil .eyebrow{ font-family:-apple-system,Helvetica,Arial,sans-serif; font-size:8px;
+                  letter-spacing:.24em; text-transform:uppercase; color:var(--sub); }
+  .redact{ background:#2a2f39; color:transparent; border-radius:1px; padding:0 1px;
+           box-shadow:inset 0 0 0 1px #343a45; }
+
+  /* ---- the tally slate ---- */
+  .slate{ position:absolute; inset:0; background:rgba(3,4,8,.88); border-radius:3px;
+          display:none; flex-direction:column; align-items:center; justify-content:center; gap:7px; padding:10px;
+          line-height:1.4; }
+  .slate.on{ display:flex; }
+  .slate .lbl{ font-family:-apple-system,Helvetica,Arial,sans-serif; font-size:8px; letter-spacing:.18em;
+               text-transform:uppercase; color:var(--sub); }
+  .slate .hint{ font-size:10px; color:#9a9384; font-style:italic; text-align:center; max-width:300px; line-height:1.45; }
+  .slate canvas{ background:transparent; border-radius:2px; }
+</style>
+</head>
+<body>
+  <div class="hud" id="hud">
+    <span class="seg"><span class="cap" id="gateCap">its count</span><span class="gate" id="gate"></span></span>
+    <span class="grow"></span>
+    <span class="seg" id="lampSeg"><span class="cap">lamp</span><span class="flame"><i id="flame"></i></span></span>
+    <span class="seg"><span class="cap">pocket</span><span class="pocket" id="pocket">&mdash;</span></span>
+  </div>
+
+  <div class="stage" id="stage">
+    <canvas id="cv"></canvas>
+    <div class="vig"></div>
+
+    <div class="box" id="box">
+      <div class="who" id="who"></div>
+      <div class="txt" id="txt"></div>
+      <div class="cue" id="cue">A</div>
+    </div>
+
+    <div class="choices" id="choices"></div>
+
+    <div class="slate" id="slate">
+      <div class="lbl" id="slateLbl">listen</div>
+      <canvas id="sc"></canvas>
+      <div class="hint" id="slateHint"></div>
+    </div>
+
+    <div class="veil" id="veil">
+      <div class="eyebrow" id="veilEye"></div>
+      <div class="big" id="veilTitle">TALLY</div>
+      <div class="rule"></div>
+      <div class="small" id="veilText">He kept the count for nineteen years. Tonight he lost it.</div>
+      <div class="keys" id="veilKeys"><span>A</span> begin &nbsp;&middot;&nbsp; <span>D-pad</span> move &nbsp;&middot;&nbsp; <span>B</span> scatter</div>
+    </div>
+  </div>
+
+  <div class="tick" id="tick"></div>
+
+<script>
+"use strict";
+/* TALLY — a horror game for the Hplay d-pad.
+
+   House rules, kept honestly all the way through the code:
+
+   1. There is not one digit in this game. Not in the HUD, not in the writing, not in the
+      code's own user-facing strings. Quantities are said in words, or shown as chalk marks
+      on a five-bar gate, which is how you count when you cannot count.
+   2. The thing that hunts you counts in Yan Tan Tethera, the shepherd's score that was
+      really used on the northern lines. It is compelled to finish a count it starts.
+   3. It only moves when you move. A step of yours is a step of its own.
+   4. It is drawn as a hole in your lamplight, never as a shape.
+   5. Every time it counts you it takes a word away, out of the whole game, for good —
+      out of the walls, out of your own answers. You feel yourself getting smaller. */
+
+/* ---------------------------------------------------------------- bits and pieces */
+const COLS = 21, ROWS = 11;
+const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
+const sc = document.getElementById('sc'), sctx = sc.getContext('2d');
+const $ = id => document.getElementById(id);
+const $stage = $('stage'), $box = $('box'), $who = $('who'), $txt = $('txt'), $cue = $('cue');
+const $choices = $('choices'), $veil = $('veil'), $tick = $('tick'), $slate = $('slate');
+const $gate = $('gate'), $flame = $('flame'), $pocket = $('pocket'), $hud = $('hud');
+
+const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
+const rnd = n => Math.floor(Math.random() * n);
+const pick = a => a[rnd(a.length)];
+const chance = p => Math.random() < p;
+
+/* the score. Ten is as far as it ever gets before it starts again, which is a mercy,
+   because the words after ten are worse. */
+const YAN = ['yan','tan','tethera','methera','pimp','sethera','lethera','hovera','dovera','dik'];
+
+let cell = 20, dpr = 1;
+function fit(){
+  const pad = 10;
+  const w = Math.max(140, (window.innerWidth || 420) - pad);
+  const h = Math.max(90, (window.innerHeight || 260) - 34);
+  cell = Math.max(7, Math.floor(Math.min(w / COLS, h / ROWS)));
+  dpr = Math.min(2, window.devicePixelRatio || 1);
+  cv.width = COLS * cell * dpr; cv.height = ROWS * cell * dpr;
+  cv.style.width = COLS * cell + 'px'; cv.style.height = ROWS * cell + 'px';
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.imageSmoothingEnabled = false;
+  makeGrain();
+  draw();
+}
+addEventListener('resize', fit);
+addEventListener('load', fit);
+try{ new ResizeObserver(fit).observe(document.documentElement); }catch(e){}
+
+/* ---------------------------------------------------------------- the words he has left */
+/* Taken in this order. The early ones he can spare. The late ones are the ones he needs to
+   be asked a question, which is the whole point of them being taken. */
+const LOSABLE = ['oats','frost','kettle','coat','rope','stove','window','ladder',
+                 'lamp','door','dark','quiet','hide','listen','remember','name',
+                 'yes','no','help','count'];
+let forgotten = [];
+/* It takes more each time, and it works down the list, so what goes first is furniture and
+   what goes last is everything you would need in order to answer a question. */
+function takeWords(n){
+  const got = [];
+  const left = LOSABLE.filter(w => !forgotten.includes(w));
+  for(let i = 0; i < n && i < left.length; i++){ forgotten.push(left[i]); got.push(left[i]); }
+  return got;
+}
+function wordList(a){
+  if(!a.length) return '';
+  if(a.length === 1) return '*' + a[0] + '*';
+  return a.slice(0, -1).map(w => '*' + w + '*').join(', ') + ' and *' + a[a.length - 1] + '*';
+}
+const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const hasWord = w => !forgotten.includes(w);
+
+/* Text goes through here on its way to the screen. *stars* lean the words over, _rules_
+   light them like the lamp does, and anything he has lost comes out as a smear. */
+function tokens(str){
+  const out = [];
+  let cls = '', i = 0;
+  const gone = new RegExp('\\b(' + (forgotten.length ? forgotten.join('|') : '\\u0000') + ')\\b', 'gi');
+  const marked = String(str).replace(gone, m => '' + m + '');
+  while(i < marked.length){
+    const c = marked[i];
+    if(c === '*'){ cls = cls === 'em' ? '' : 'em'; i++; continue; }
+    if(c === '_'){ cls = cls === 'fl' ? '' : 'fl'; i++; continue; }
+    if(c === ''){ i++; while(i < marked.length && marked[i] !== ''){ out.push({c:' ', k:'redact'}); i++; } i++; continue; }
+    out.push({ c, k: cls });
+    i++;
+  }
+  return out;
+}
+/* built up a character at a time, so the typewriter can stop anywhere and still hand
+   the page well-formed markup */
+function paintSafe(toks, upto){
+  let html = '', open = null;
+  const tag = k => k === 'em' ? 'em' : k === 'fl' ? 'b' : 'span';
+  const attrs = k => k === 'redact' ? ' class="redact"' : '';
+  for(let i = 0; i < Math.min(upto, toks.length); i++){
+    const t = toks[i];
+    if(t.k !== open){
+      if(open !== null) html += '</' + tag(open) + '>';
+      open = t.k || null;
+      if(open) html += '<' + tag(open) + attrs(open) + '>';
+    }
+    html += esc(t.c);
+  }
+  if(open !== null) html += '</' + tag(open) + '>';
+  return html;
+}
+const fmt = s => paintSafe(tokens(s), 1e6);
+
+/* ---------------------------------------------------------------- sound */
+let ac = null, master = null, soundOn = true, droneNode = null;
+function audio(){
+  if(ac) return ac;
+  try{
+    ac = new (window.AudioContext || window.webkitAudioContext)();
+    master = ac.createGain(); master.gain.value = soundOn ? 0.5 : 0; master.connect(ac.destination);
+  }catch(e){ ac = null; }
+  return ac;
+}
+function setSound(on){ soundOn = on; if(master) master.gain.value = on ? 0.5 : 0; }
+let noiseBuf = null;
+function noise(){
+  if(noiseBuf || !ac) return noiseBuf;
+  const n = ac.sampleRate * 2;
+  noiseBuf = ac.createBuffer(1, n, ac.sampleRate);
+  const d = noiseBuf.getChannelData(0);
+  for(let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1;
+  return noiseBuf;
+}
+function tone(f, dur, type, vol, slideTo){
+  if(!audio() || !soundOn) return;
+  const o = ac.createOscillator(), g = ac.createGain();
+  o.type = type || 'sine'; o.frequency.value = f;
+  if(slideTo) o.frequency.exponentialRampToValueAtTime(Math.max(20, slideTo), ac.currentTime + dur);
+  g.gain.value = 0; g.gain.linearRampToValueAtTime(vol == null ? 0.16 : vol, ac.currentTime + 0.012);
+  g.gain.exponentialRampToValueAtTime(0.0001, ac.currentTime + dur);
+  o.connect(g).connect(master); o.start(); o.stop(ac.currentTime + dur + 0.05);
+}
+function hiss(dur, f, q, vol){
+  if(!audio() || !soundOn || !noise()) return;
+  const s = ac.createBufferSource(); s.buffer = noiseBuf; s.loop = true;
+  const bp = ac.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = f; bp.Q.value = q || 1;
+  const g = ac.createGain(); g.gain.value = 0;
+  g.gain.linearRampToValueAtTime(vol == null ? 0.12 : vol, ac.currentTime + 0.02);
+  g.gain.exponentialRampToValueAtTime(0.0001, ac.currentTime + dur);
+  s.connect(bp).connect(g).connect(master); s.start(); s.stop(ac.currentTime + dur + 0.05);
+}
+const sfx = {
+  step(loud){ hiss(loud ? 0.16 : 0.07, loud ? 1500 : 600, loud ? 0.8 : 1.6, loud ? 0.16 : 0.05); },
+  chalk(){ hiss(0.09, 2600, 1.2, 0.1); },
+  thud(){ tone(64, 0.5, 'sine', 0.3, 38); hiss(0.14, 220, 0.7, 0.1); },
+  knock(){ tone(120, 0.16, 'square', 0.07, 70); },
+  heart(){ tone(48, 0.26, 'sine', 0.26, 34); },
+  gasp(){ hiss(0.3, 900, 0.6, 0.2); },
+  bark(){ tone(340, 0.09, 'square', 0.1, 180); setTimeout(()=>tone(300, 0.12, 'square', 0.09, 150), 100); },
+  scatter(){ for(let i = 0; i < 9; i++) setTimeout(()=>hiss(0.05, 2200 + rnd(2600), 3, 0.05), i * 34); },
+  lamp(){ tone(700, 0.2, 'triangle', 0.06, 420); },
+  bad(){ tone(90, 0.7, 'sawtooth', 0.14, 46); },
+  good(){ tone(392, 0.2, 'sine', 0.1); setTimeout(()=>tone(523, 0.3, 'sine', 0.09), 130); },
+  count(i){ hiss(0.2, 380 + (i % 5) * 60, 4, 0.14); tone(96 + (i % 5) * 7, 0.22, 'sine', 0.05); },
+  rail(){ tone(52, 1.6, 'sine', 0.1, 44); hiss(1.4, 300, 0.5, 0.05); },
+  door(){ hiss(0.3, 420, 0.8, 0.09); tone(70, 0.3, 'sine', 0.08, 50); },
+};
+function drone(on, f){
+  if(!audio()) return;
+  if(droneNode){ try{ droneNode.stop(); }catch(e){} droneNode = null; }
+  if(!on) return;
+  const o = ac.createOscillator(), g = ac.createGain(), lfo = ac.createOscillator(), lg = ac.createGain();
+  o.type = 'sine'; o.frequency.value = f || 41;
+  g.gain.value = 0.06;
+  lfo.frequency.value = 0.13; lg.gain.value = 0.02;
+  lfo.connect(lg).connect(g.gain);
+  o.connect(g).connect(master); o.start(); lfo.start();
+  droneNode = { stop(){ o.stop(); lfo.stop(); } };
+}
+
+/* ---------------------------------------------------------------- chalk marks */
+/* A five-bar gate: four uprights and one laid across them. Drawn by hand every time,
+   with a wobble, because he is not steady. */
+function gateSVG(n, h, colour){
+  h = h || 11;
+  const g = 5, groups = Math.ceil(Math.max(n, 0) / g) || 0;
+  const w = Math.max(6, groups * (g * 2.6 + 3));
+  let d = '';
+  for(let i = 0; i < n; i++){
+    const gi = Math.floor(i / g), k = i % g;
+    const x0 = gi * (g * 2.6 + 3);
+    if(k < 4){
+      const x = x0 + k * 2.6 + 1.2, j = ((i * 37) % 7 - 3) * 0.13;
+      d += 'M' + (x + j).toFixed(1) + ' 1.5L' + (x - j).toFixed(1) + ' ' + (h - 1.5) + ' ';
+    } else {
+      d += 'M' + (x0 + 0.2).toFixed(1) + ' ' + (h - 2) + 'L' + (x0 + 4 * 2.6 + 1.6).toFixed(1) + ' 2.4 ';
+    }
+  }
+  return '<svg width="' + w + '" height="' + h + '" viewBox="0 0 ' + w + ' ' + h + '">' +
+         '<path d="' + d + '" stroke="' + (colour || '#e9e3d6') + '" stroke-width="1.15" stroke-linecap="round" fill="none" opacity=".92"/></svg>';
+}
+/* the same gate, bigger, on the slate, where the drift and the fading live */
+function drawGate(g, x, y, n, size, colour, alphaOf){
+  const bar = size, gap = size * 0.34, grp = size * 0.42;
+  g.strokeStyle = colour; g.lineWidth = Math.max(1.4, size * 0.09); g.lineCap = 'round';
+  for(let i = 0; i < n; i++){
+    const gi = Math.floor(i / 5), k = i % 5;
+    const x0 = x + gi * (4 * gap + grp + gap);
+    g.globalAlpha = alphaOf ? alphaOf(i) : 1;
+    g.beginPath();
+    if(k < 4){
+      const px = x0 + k * gap, j = ((i * 53) % 9 - 4) * size * 0.012;
+      g.moveTo(px + j, y); g.lineTo(px - j, y + bar);
+    } else {
+      g.moveTo(x0 - gap * 0.35, y + bar * 0.88); g.lineTo(x0 + 3 * gap + gap * 0.5, y + bar * 0.1);
+    }
+    g.stroke();
+  }
+  g.globalAlpha = 1;
+}
+const gateWidth = (n, size) => Math.ceil(n / 5) * (4 * size * 0.34 + size * 0.42 + size * 0.34);
+
+/* ---------------------------------------------------------------- grain and flicker */
+let grain = null;
+function makeGrain(){
+  const c = document.createElement('canvas');
+  c.width = c.height = 64;
+  const g = c.getContext('2d'), im = g.createImageData(64, 64);
+  for(let i = 0; i < im.data.length; i += 4){
+    const v = 120 + rnd(136);
+    im.data[i] = im.data[i+1] = im.data[i+2] = v;
+    im.data[i+3] = rnd(26);
+  }
+  g.putImageData(im, 0, 0);
+  grain = c;
+}
+/* ---------------------------------------------------------------- the ground underfoot */
+/* Floors are the stealth system. Ballast, rail and standing water are loud, and it hears
+   loud. Boards, ash and grass are quiet. You learn to read the floor before you cross it,
+   which is the only skill in this game that is not counting. */
+const TILE = {
+  '#': { solid:1, wall:1 },
+  'w': { solid:1, pane:1 },
+  'o': { solid:1, prop:1 },
+  '.': { col:'#2b3038', noise:0 },                    // boards, ash, packed earth
+  '%': { col:'#222a22', noise:0, grass:1 },
+  ',': { col:'#272d36', noise:2, ballast:1 },         // ballast
+  '=': { col:'#39434f', noise:2, rail:1 },
+  '_': { col:'#2a2d33', noise:1, sleeper:1 },
+  '~': { col:'#1c2a33', noise:2, wet:1 },
+  'h': { col:'#262b34', hide:1 },
+  ' ': { solid:1, outside:1 },
+};
+const EXITS = 'ABCD';
+const isExit = c => EXITS.indexOf(c) >= 0;
+const isSpot = c => c >= 'a' && c <= 'f';
+function tileAt(room, x, y){
+  if(x < 0 || y < 0 || x >= COLS || y >= ROWS) return TILE[' '];
+  const c = room.map[y][x];
+  if(isExit(c)) return { col:'#2b3038', noise:0, exit:c };
+  if(isSpot(c)) return Object.assign({ col:'#2b3038', noise:0, spot:c }, room.spots[c] || {});
+  return TILE[c] || TILE['.'];
+}
+const walkable = (room, x, y) => { const t = tileAt(room, x, y); return !t.solid; };
+function findChar(room, ch){
+  for(let y = 0; y < ROWS; y++){ const x = room.map[y].indexOf(ch); if(x >= 0) return { x, y }; }
+  return null;
+}
+
+/* ---------------------------------------------------------------- Halberd Box and the Caul line */
+/* Twenty-one across, eleven down, one screen to a room, because a room you cannot see all of
+   is a room you are already lost in. */
+const ROOMS = {
+
+  frame: {
+    name:'the lever frame',
+    line:'Nineteen levers in a row, and every one of them cold.',
+    map:[
+      '#####################',
+      '#wwwwwwwwwwwwwwwwwww#',
+      '#...................#',
+      '#..ooooooooooooo....#',
+      '#...................#',
+      '#.......a...........#',
+      '#...................#',
+      '#..hh...........b...#',
+      '#..hh...............#',
+      '#########A###########',
+      '                     ',
+    ],
+    spots:{ a:{ kind:'block' },
+            b:{ kind:'peg' } },
+    links:{ A:['desk','B'] },
+    hideName:'behind the lever frame',
+  },
+
+  desk: {
+    name:'the desk',
+    line:'The stove is out. The ledger is open at tonight.',
+    map:[
+      '#########B###########',
+      '#...................#',
+      '#..c................#',
+      '#.ooo....a..........#',
+      '#.hhh...............#',
+      '#.......e......ooo..#',
+      '#..............ohho.#',
+      '#..d...........ohho.#',
+      '#...................#',
+      '###########A#########',
+      '                     ',
+    ],
+    spots:{ a:{ kind:'ledger' },
+            c:{ kind:'stove' },
+            d:{ kind:'basket' },
+            e:{ kind:'pail' } },
+    links:{ A:['stair','B'], B:['frame','A'] },
+    hideName:'under the desk',
+  },
+
+  stair: {
+    name:'the stair head',
+    line:'Cold comes up the stairwell like something breathing on your ankles.',
+    map:[
+      '#########B###########',
+      '#...................#',
+      '#..............a....#',
+      '#....hh.............#',
+      '#....hh.............#',
+      '#...................#',
+      '#..b................#',
+      '#...................#',
+      '#..............A....#',
+      '#####################',
+      '                     ',
+    ],
+    spots:{ a:{ kind:'cupboard' },
+            b:{ kind:'matches' } },
+    links:{ A:['under','B'], B:['desk','A'] },
+    hideName:'in the coats',
+  },
+
+  under: {
+    name:'under the box',
+    line:'The underside of your own life: props, sleepers, the smell of oil.',
+    map:[
+      '                     ',
+      '#####################',
+      '#.........B.........#',
+      '#...................#',
+      '#.ooo..........a....#',
+      '#.ohh...............#',
+      '#.ooo...........b...#',
+      '#...................#',
+      '#,,,,,,,,,,,,,,,,,,,#',
+      '#,,,,,,,,,,,,,,,,,,A#',
+      '#####################',
+    ],
+    spots:{ a:{ kind:'sack' },
+            b:{ kind:'can' } },
+    links:{ A:['platform','D'], B:['stair','A'] },
+    hideName:'behind the props',
+  },
+
+  platform: {
+    name:'the platform',
+    line:'Four boards and a name-board. Nobody has got off here in years.',
+    map:[
+      '                     ',
+      '#####################',
+      '#..............a....#',
+      'D...................#',
+      '#..hh...............#',
+      '#..b................#',
+      '##########.##########',
+      ',,,,,,,,,,,,,,,,,,,,,',
+      '=====================',
+      '_____________________',
+      ',,,,,,,,,,,,,,,,,,,,A',
+    ],
+    spots:{ a:{ kind:'sign' },
+            b:{ kind:'barrow' } },
+    links:{ A:['crossing','D'], D:['under','A'] },
+    hideName:'under the barrow',
+  },
+
+  crossing: {
+    name:'the occupation crossing',
+    line:'A gate for a farmer who is not coming. The lamps here are out too.',
+    map:[
+      '%%%%%%%%%%%%%%%%%%%%%',
+      '%%%%%%%%o%%%%%%%%%%%%',
+      '%%%hh%%%o%%%%%a%%%%%%',
+      '%%%hh%%%o%%%%%%%%%%%%',
+      ',,,,,,,,,,,,,,,,,,,,,',
+      '=====================',
+      '_____________________',
+      'D,,,,,,,,,,,,,,,,,,,A',
+      '%%%%%%%%%%%%%%b%%%%%%',
+      '%%%%%%%%%%%%%%%%%%%%%',
+      '%%%%%%%%%%%%%%%%%%%%%',
+    ],
+    spots:{ a:{ kind:'gatepost' },
+            b:{ kind:'jar' } },
+    links:{ A:['cutting','D'], D:['platform','A'] },
+    hideName:'in the hedge',
+  },
+
+  cutting: {
+    name:'the chalk cutting',
+    line:'The walls go up on both sides, white, and the white is covered in marks.',
+    map:[
+      '#####################',
+      '#####################',
+      '#####################',
+      '#####################',
+      ',,,,,,,,,,a,,,,,,,,,,',
+      '=====================',
+      '_____________________',
+      'D,,,,,,,,,,,,,,,,,,,A',
+      '#####################',
+      '#####################',
+      '#####################',
+    ],
+    spots:{ a:{ kind:'marks' } },
+    links:{ A:['relay','D'], D:['crossing','A'] },
+    hideName:'against the chalk',
+    noHide:true,
+  },
+
+  relay: {
+    name:'the relay hut',
+    line:'A brick hut the size of a coffin stood on end, and a light in it.',
+    map:[
+      '%%%%%%%%%%%%%%%%%%%%%',
+      '%%%%##########%%%%%%%',
+      '%%%%#........#%%%%%%%',
+      '%%%%#.......aC%%%%%%%',
+      '%%%%#.b......#%%%%%%%',
+      '%%%%####.#####%%%%%%%',
+      ',,,,,,,,,,,,,,,,,,,,,',
+      '=====================',
+      '_____________________',
+      'D,,,,,,,,,,,,,,,,,,,A',
+      '%%%%%%%%hh%%%%%%%%%%%',
+    ],
+    spots:{ a:{ kind:'door' },
+            b:{ kind:'quillan' } },
+    links:{ A:['bridge','D'], D:['cutting','A'], C:['lampr','A'] },
+    hideName:'in the long grass',
+  },
+
+  lampr: {
+    name:'the lamp room',
+    line:'Paraffin, wicks, glass. The smell of every night of your working life.',
+    map:[
+      '#####################',
+      '#...................#',
+      '#..ooo.......ooo....#',
+      '#..o.............o..#',
+      '#....a.......b......#',
+      'A...................#',
+      '#..o.............o..#',
+      '#..ooo......hh.ooo..#',
+      '#...........hh......#',
+      '#...................#',
+      '#####################',
+    ],
+    spots:{ a:{ kind:'taillamp' },
+            b:{ kind:'can' } },
+    links:{ A:['relay','C'] },
+    hideName:'behind the crates',
+  },
+
+  bridge: {
+    name:'the occupation bridge',
+    line:'Wind. The sleepers below go away into the dark in a long ladder.',
+    map:[
+      '                     ',
+      '                     ',
+      '   ###############   ',
+      '   #.............#   ',
+      '   #.....a.......#   ',
+      '   ,,,,,,,,,,,,,,,   ',
+      'D,,,,,,,,,,,,,,,,,,,A',
+      '   ###############   ',
+      '                     ',
+      '                     ',
+      '                     ',
+    ],
+    spots:{ a:{ kind:'parapet' } },
+    links:{ A:['tunnel','D'], D:['relay','A'] },
+    hideName:'under the parapet',
+    windy:true, noHide:true,
+  },
+
+  tunnel: {
+    name:'the tunnel mouth',
+    line:'The hill opens its mouth and does not close it.',
+    map:[
+      '#####################',
+      '#####################',
+      '####.............####',
+      '###...............###',
+      ',,,,,,,,,,a,,,,,,,,,,',
+      '=====================',
+      '_____________________',
+      'D,,,,,,,,,,,,,,,,,,,A',
+      '###...............###',
+      '####hh.......hh...###',
+      '#####################',
+    ],
+    spots:{ a:{ kind:'mouth' } },
+    links:{ A:['siding','D'], D:['bridge','A'] },
+    hideName:'in the mouth',
+    dim:0.6,
+  },
+
+  siding: {
+    name:'the siding',
+    line:'A length of rusted road, a buffer stop, and something standing at the end of it.',
+    map:[
+      '%%%%%%%%%%%%%%%%%%%%%',
+      '%%%%%%%%%%%%%%%%%%%%%',
+      ',,,,,,,,,,,,,,,,,,,,,',
+      '=====================',
+      '_____________________',
+      'D,,,,,,,,,,,,,,,,,,,,',
+      ',,,,,,,,,,,,,,,,,,,,,',
+      '%%%%%%%%%%%a%%%%%%%%%',
+      '%%%%hh%%%%%%%%%%%%%%%',
+      '%%%%hh%%%%%%%%%%%%%%%',
+      '%%%%%%%%%%%%%%%%%%%%%',
+    ],
+    spots:{ a:{ kind:'car' } },
+    links:{ D:['tunnel','A'] },
+    hideName:'in the grass',
+  },
+};
+
+/* ---------------------------------------------------------------- state */
+const S = {
+  mode:'title',            // title | text | play | slate | hide | over
+  room:'frame', px:3, py:5, face:'down',
+  lamp:1, pocket:[], has:{},
+  flags:{}, counted:0,
+  it:{ room:null, x:0, y:0, gate:0, pace:5, busy:0, target:null, seen:false, awake:false },
+  dogHere:false, beat:0, act:'prologue', ending:null,
+  tickWord:'', tickFar:true,
+};
+const MATERIAL = {
+  grit:   { name:'grit',    marks:9  },
+  matches:{ name:'matches', marks:6  },
+  oats:   { name:'oats',    marks:16 },
+  pins:   { name:'pins',    marks:14 },
+  buttons:{ name:'buttons', marks:11 },
+};
+const POCKET_WORDS = ['empty','next to nothing','a little','a fair weight','heavy','heavy'];
+function pocketWord(){
+  const n = S.pocket.length;
+  return POCKET_WORDS[Math.min(n, POCKET_WORDS.length - 1)];
+}
+
+/* ---------------------------------------------------------------- drawing the world */
+const hash = (x, y, s) => { let h = (x * 73856093) ^ (y * 19349663) ^ ((s || 0) * 83492791); h = (h ^ (h >>> 13)) >>> 0; return (h % 1000) / 1000; };
+let flick = 1, grainT = 0;
+
+function drawTile(x, y, ch, room){
+  const t = tileAt(room, x, y);
+  const px = x * cell, py = y * cell;
+  if(t.outside) return;
+  if(t.wall){
+    ctx.fillStyle = '#161a22'; ctx.fillRect(px, py, cell, cell);
+    ctx.fillStyle = '#1e232d'; ctx.fillRect(px, py, cell, Math.max(1, cell * 0.18));
+    if(hash(x, y, 3) > 0.72){ ctx.fillStyle = '#11141b'; ctx.fillRect(px + cell * 0.2, py + cell * 0.5, cell * 0.5, cell * 0.12); }
+    return;
+  }
+  if(t.pane){
+    ctx.fillStyle = '#0a1016'; ctx.fillRect(px, py, cell, cell);
+    ctx.strokeStyle = '#2d3a46'; ctx.lineWidth = 1;
+    ctx.strokeRect(px + 1.5, py + 1.5, cell - 3, cell - 3);
+    ctx.fillStyle = 'rgba(94,125,146,.10)'; ctx.fillRect(px + 2, py + 2, cell - 4, cell - 4);
+    return;
+  }
+  if(t.prop){
+    ctx.fillStyle = '#20252e'; ctx.fillRect(px, py, cell, cell);
+    ctx.fillStyle = '#2a313c'; ctx.fillRect(px + 1, py + 1, cell - 2, cell - 2);
+    ctx.fillStyle = '#171b23'; ctx.fillRect(px + 1, py + cell * 0.55, cell - 2, 1);
+    return;
+  }
+  ctx.fillStyle = t.col || '#2b3038';
+  ctx.fillRect(px, py, cell, cell);
+  if(t.ballast){
+    for(let i = 0; i < 5; i++){
+      const h1 = hash(x, y, i), h2 = hash(x, y, i + 9);
+      ctx.fillStyle = h1 > 0.55 ? '#323945' : '#1e232b';
+      ctx.fillRect(px + h1 * (cell - 2), py + h2 * (cell - 2), 1.4, 1.4);
+    }
+  } else if(t.rail){
+    ctx.fillStyle = '#525d6b'; ctx.fillRect(px, py + cell * 0.30, cell, Math.max(1.2, cell * 0.12));
+    ctx.fillStyle = '#6a7684'; ctx.fillRect(px, py + cell * 0.30, cell, 1);
+    ctx.fillStyle = '#4a545f'; ctx.fillRect(px, py + cell * 0.66, cell, Math.max(1.2, cell * 0.10));
+  } else if(t.sleeper){
+    ctx.fillStyle = '#343a42'; ctx.fillRect(px + 1, py + cell * 0.18, cell - 2, cell * 0.64);
+    ctx.fillStyle = '#23272e'; ctx.fillRect(px + 1, py + cell * 0.18, cell - 2, 1);
+  } else if(t.grass){
+    for(let i = 0; i < 4; i++){
+      const h1 = hash(x, y, i + 2), h2 = hash(x, y, i + 17);
+      ctx.strokeStyle = h1 > 0.6 ? '#2e3a2c' : '#252e24'; ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(px + h1 * cell, py + cell);
+      ctx.lineTo(px + h1 * cell + (h2 - 0.5) * 3, py + cell * (0.35 + h2 * 0.4));
+      ctx.stroke();
+    }
+  } else if(t.wet){
+    ctx.fillStyle = 'rgba(94,125,146,.22)';
+    ctx.beginPath(); ctx.ellipse(px + cell / 2, py + cell / 2, cell * 0.38, cell * 0.28, 0, 0, 7); ctx.fill();
+  } else if(t.hide){
+    ctx.fillStyle = '#1b1f27'; ctx.fillRect(px + 1, py + 1, cell - 2, cell - 2);
+    ctx.strokeStyle = 'rgba(240,176,84,.26)'; ctx.lineWidth = 1;
+    ctx.strokeRect(px + 2.5, py + 2.5, cell - 5, cell - 5);
+  } else if(t.exit){
+    ctx.fillStyle = '#0d1016'; ctx.fillRect(px, py, cell, cell);
+    ctx.fillStyle = 'rgba(240,176,84,.13)';
+    ctx.fillRect(px + cell * 0.2, py + cell * 0.2, cell * 0.6, cell * 0.6);
+  } else {
+    if(hash(x, y, 5) > 0.88){ ctx.fillStyle = 'rgba(0,0,0,.18)'; ctx.fillRect(px + hash(x,y,6) * cell * 0.6, py + hash(x,y,7) * cell * 0.6, cell * 0.3, 1.2); }
+  }
+}
+
+/* the things worth walking over to look at */
+function drawSpot(x, y, kind){
+  const px = x * cell + cell / 2, py = y * cell + cell / 2, u = cell / 20;
+  ctx.save(); ctx.translate(px, py);
+  const box = (w, h, c) => { ctx.fillStyle = c; ctx.fillRect(-w/2, -h/2, w, h); };
+  switch(kind){
+    case 'ledger': box(13*u, 9*u, '#c8c0ad'); box(13*u, 1.4*u, '#8e8672');
+      ctx.fillStyle = '#6f6857'; for(let i=0;i<3;i++) ctx.fillRect(-5*u, (-2+i*2)*u, 10*u, 0.8*u); break;
+    case 'stove': box(12*u, 12*u, '#23282f'); box(10*u, 3*u, '#3a1e14');
+      ctx.fillStyle = '#12161c'; ctx.fillRect(-1.5*u, -12*u, 3*u, 6*u); break;
+    case 'basket': ctx.fillStyle = '#3a3022'; ctx.beginPath(); ctx.ellipse(0, 0, 8*u, 5*u, 0, 0, 7); ctx.fill();
+      ctx.fillStyle = '#2a2318'; ctx.beginPath(); ctx.ellipse(0, 0, 6*u, 3.4*u, 0, 0, 7); ctx.fill(); break;
+    case 'pail': box(9*u, 9*u, '#39414c'); box(9*u, 1.6*u, '#4c5663'); break;
+    case 'block': box(15*u, 7*u, '#2d3038');
+      for(let i=0;i<3;i++){ ctx.fillStyle = '#c8b27a'; ctx.beginPath(); ctx.arc((-4+i*4)*u, -0.5*u, 1.6*u, 0, 7); ctx.fill(); } break;
+    case 'peg': box(1.6*u, 7*u, '#3a3a3a'); break;
+    case 'cupboard': box(13*u, 14*u, '#2a2118'); box(12*u, 13*u, '#33281c');
+      ctx.fillStyle = '#7d848f'; ctx.beginPath(); ctx.arc(3*u, 0, 1.8*u, 0, 7); ctx.fill(); break;
+    case 'matches': box(8*u, 5*u, '#6b4a2c'); box(7*u, 1.2*u, '#c07a3a'); break;
+    case 'sack': ctx.fillStyle = '#4a4232'; ctx.beginPath(); ctx.moveTo(-6*u, 7*u); ctx.lineTo(6*u, 7*u); ctx.lineTo(4*u, -6*u); ctx.lineTo(-4*u, -6*u); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#5c5340'; ctx.fillRect(-4*u, -7*u, 8*u, 2*u); break;
+    case 'can': box(8*u, 10*u, '#3f4750'); ctx.fillStyle = '#2b3138'; ctx.fillRect(2*u, -8*u, 5*u, 2*u); break;
+    case 'sign': box(17*u, 7*u, '#22303a'); ctx.fillStyle = '#9fb2bd'; ctx.font = (cell*0.3)+'px Georgia'; ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillText('HALBERD', 0, 0); break;
+    case 'barrow': box(12*u, 6*u, '#3b3128'); ctx.fillStyle = '#23262c'; ctx.beginPath(); ctx.arc(-4*u, 5*u, 3*u, 0, 7); ctx.fill(); break;
+    case 'gatepost': box(5*u, 16*u, '#3a3226');
+      ctx.strokeStyle = '#d8d2c4'; ctx.lineWidth = Math.max(1, u*0.7);
+      for(let i=0;i<6;i++){ ctx.beginPath(); ctx.moveTo(-1.6*u + (i%3)*1.4*u, (-6+Math.floor(i/3)*6)*u); ctx.lineTo(-1.6*u + (i%3)*1.4*u, (-2+Math.floor(i/3)*6)*u); ctx.stroke(); } break;
+    case 'jar': ctx.fillStyle = '#3d4a4f'; ctx.beginPath(); ctx.ellipse(0, 0, 5*u, 6*u, 0, 0, 7); ctx.fill();
+      ctx.fillStyle = '#6a7276'; ctx.fillRect(-3*u, -8*u, 6*u, 2*u); break;
+    case 'marks': ctx.strokeStyle = '#d8d2c4'; ctx.lineWidth = Math.max(1, u*0.6);
+      for(let i=0;i<10;i++){ const gx = (-9 + (i%5)*2.2 + Math.floor(i/5)*0)*u, gy = (Math.floor(i/5)*7 - 5)*u;
+        ctx.beginPath(); ctx.moveTo(gx, gy); ctx.lineTo(gx + u*0.4, gy + 5*u); ctx.stroke(); } break;
+    case 'door': box(11*u, 15*u, '#2c2622'); ctx.fillStyle = '#8d939c'; ctx.fillRect(3*u, 0, 2*u, 1.4*u);
+      ctx.strokeStyle = '#d8d2c4'; ctx.lineWidth = Math.max(1, u*0.6);
+      for(let i=0;i<4;i++){ ctx.beginPath(); ctx.moveTo((6+i*1.3)*u, -4*u); ctx.lineTo((6+i*1.3)*u, 0); ctx.stroke(); } break;
+    case 'taillamp': box(9*u, 11*u, '#4a4238'); ctx.fillStyle = '#d8453a'; ctx.beginPath(); ctx.arc(0, -1*u, 3.2*u, 0, 7); ctx.fill();
+      ctx.fillStyle = '#f0b054'; ctx.beginPath(); ctx.arc(-1*u, -2*u, 1.1*u, 0, 7); ctx.fill(); break;
+    case 'parapet': box(18*u, 5*u, '#2b3138'); box(18*u, 1.4*u, '#39424b'); break;
+    case 'mouth': ctx.fillStyle = '#000'; ctx.beginPath(); ctx.ellipse(0, 0, 9*u, 8*u, 0, 0, 7); ctx.fill(); break;
+    case 'car': box(19*u, 13*u, '#20242b'); box(18*u, 12*u, '#282d35');
+      ctx.fillStyle = '#171a20'; ctx.fillRect(-9*u, 3*u, 18*u, 1.6*u);
+      ctx.strokeStyle = '#4b535e'; ctx.lineWidth = 1; ctx.strokeRect(-9*u, -6*u, 18*u, 12*u);
+      ctx.fillStyle = '#39404a'; ctx.fillRect(7*u, -2*u, 3*u, 3*u); break;
+    case 'quillan': break;   // drawn as a figure, not a prop
+  }
+  ctx.restore();
+}
+
+/* a person: a small hunched upright, and a spill of lamplight if they carry one */
+function drawMan(x, y, face, col, lampOn){
+  const px = x * cell + cell / 2, py = y * cell + cell * 0.55, u = cell / 20;
+  ctx.save(); ctx.translate(px, py);
+  if(lampOn){
+    const g = ctx.createRadialGradient(0, 0, 0, 0, 0, cell * 1.1);
+    g.addColorStop(0, 'rgba(240,176,84,.22)'); g.addColorStop(1, 'rgba(240,176,84,0)');
+    ctx.fillStyle = g; ctx.fillRect(-cell * 1.1, -cell * 1.1, cell * 2.2, cell * 2.2);
+  }
+  /* dark against the floor, with the lamp catching one shoulder, so he reads at a glance
+     without ever looking lit — he is carrying the only light there is */
+  ctx.fillStyle = '#0b0e13';
+  ctx.beginPath(); ctx.ellipse(0, 1.5*u, 5*u, 6.8*u, 0, 0, 7); ctx.fill();
+  ctx.beginPath(); ctx.arc(0, -6*u, 3.9*u, 0, 7); ctx.fill();
+  ctx.fillStyle = col;
+  ctx.beginPath(); ctx.ellipse(0, 1.5*u, 4.2*u, 6*u, 0, 0, 7); ctx.fill();      // body
+  ctx.beginPath(); ctx.arc(0, -6*u, 3.2*u, 0, 7); ctx.fill();                    // head
+  if(lampOn){
+    ctx.strokeStyle = 'rgba(240,176,84,.55)'; ctx.lineWidth = Math.max(1, u * 0.8);
+    const s = face === 'left' ? -1 : 1;
+    ctx.beginPath(); ctx.arc(0, 1.5*u, 4.6*u, s > 0 ? -0.5 : 2.6, s > 0 ? 1.1 : 4.2); ctx.stroke();
+  }
+  ctx.fillStyle = 'rgba(0,0,0,.45)';
+  if(face === 'down') ctx.fillRect(-2*u, -6*u, 4*u, 2*u);
+  if(face === 'up')   ctx.fillRect(-2.6*u, -9*u, 5.2*u, 1.6*u);
+  if(face === 'left') ctx.fillRect(-3.2*u, -7*u, 2.4*u, 2.4*u);
+  if(face === 'right')ctx.fillRect(0.8*u, -7*u, 2.4*u, 2.4*u);
+  if(lampOn){
+    ctx.fillStyle = '#f0b054';
+    const lx = face === 'left' ? -5*u : face === 'right' ? 5*u : 4.4*u;
+    ctx.beginPath(); ctx.arc(lx, 2*u, 1.7*u, 0, 7); ctx.fill();
+  }
+  ctx.restore();
+}
+function drawDog(x, y){
+  const px = x * cell + cell / 2, py = y * cell + cell * 0.65, u = cell / 20;
+  ctx.save(); ctx.translate(px, py);
+  ctx.fillStyle = '#15171c';
+  ctx.beginPath(); ctx.ellipse(0, 0, 5*u, 3*u, 0, 0, 7); ctx.fill();
+  ctx.beginPath(); ctx.arc(4*u, -2.4*u, 2.2*u, 0, 7); ctx.fill();
+  ctx.fillRect(6*u, -4.6*u, 1.2*u, 1.8*u);
+  ctx.strokeStyle = '#15171c'; ctx.lineWidth = u; ctx.beginPath(); ctx.moveTo(-5*u, -1*u); ctx.lineTo(-7.5*u, -3*u); ctx.stroke();
+  ctx.restore();
+}
+
+/* It is not drawn. The light is drawn, and then it is taken out of the light. */
+function drawIt(x, y, phase){
+  const px = x * cell + cell / 2, py = y * cell + cell * 0.5, u = cell / 20;
+  ctx.save(); ctx.translate(px, py);
+  /* the light dies for a foot or so all round it before it even gets there */
+  const eat = ctx.createRadialGradient(0, 0, 0, 0, 0, cell * 1.5);
+  eat.addColorStop(0, 'rgba(0,0,0,.92)'); eat.addColorStop(0.55, 'rgba(0,0,0,.55)');
+  eat.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = eat; ctx.fillRect(-cell * 1.5, -cell * 1.5, cell * 3, cell * 3);
+  ctx.fillStyle = '#000';
+  ctx.beginPath();
+  ctx.moveTo(-4.5*u, 10*u); ctx.lineTo(-3.4*u, -7*u);
+  ctx.quadraticCurveTo(0, -13.5*u - Math.sin(phase) * u, 3.4*u, -7*u);
+  ctx.lineTo(4.5*u, 10*u); ctx.closePath(); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(0, -9*u, 3.1*u, 4.2*u, 0, 0, 7); ctx.fill();
+  /* the only part of it your eye can get hold of: where the wet light slides off its edge */
+  ctx.strokeStyle = 'rgba(120,150,172,.62)'; ctx.lineWidth = 1.1;
+  ctx.beginPath(); ctx.moveTo(-4.5*u, 10*u); ctx.lineTo(-3.4*u, -7*u); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(4.5*u, 10*u); ctx.lineTo(3.4*u, -7*u); ctx.stroke();
+  ctx.strokeStyle = 'rgba(120,150,172,.34)';
+  ctx.beginPath(); ctx.ellipse(0, -9*u, 3.1*u, 4.2*u, 0, 0, 7); ctx.stroke();
+  // a hand at its side, laying marks it does not need to lay
+  ctx.strokeStyle = 'rgba(232,227,214,.5)';
+  ctx.beginPath(); ctx.moveTo(4*u, 1*u); ctx.lineTo(6.5*u + Math.sin(phase * 2) * u, 4*u); ctx.stroke();
+  ctx.restore();
+}
+
+let shakeT = 0, shakeAmt = 0;
+function shake(a){ shakeAmt = a; shakeT = performance.now(); }
+
+function draw(){
+  const room = ROOMS[S.room];
+  if(!room) return;
+  const w = COLS * cell, h = ROWS * cell;
+  ctx.save();
+  const since = performance.now() - shakeT;
+  if(since < 320 && shakeAmt > 0){
+    const k = (1 - since / 320) * shakeAmt;
+    ctx.translate((Math.random() - 0.5) * k, (Math.random() - 0.5) * k);
+  }
+  ctx.fillStyle = '#04060a'; ctx.fillRect(-4, -4, w + 8, h + 8);
+
+  for(let y = 0; y < ROWS; y++)
+    for(let x = 0; x < COLS; x++) drawTile(x, y, room.map[y][x], room);
+
+  for(const k in (room.spots || {})){
+    const p = findChar(room, k);
+    if(p && !(room.spots[k].taken)) drawSpot(p.x, p.y, room.spots[k].kind);
+  }
+  if(room.figure){ const p = findChar(room, room.figure.at); if(p) drawMan(p.x, p.y, 'down', '#2f3a44', true); }
+
+  if(S.dogHere && S.dogAt) drawDog(S.dogAt.x, S.dogAt.y);
+  /* folded into a cupboard he is still there, just smaller and with the lamp shut,
+     because a player who cannot see where he is cannot decide when to come out */
+  if(S.mode === 'hide') drawMan(S.px, S.py, S.face, '#343c47', false);
+  else drawMan(S.px, S.py, S.face, '#5d6877', S.lamp > 0.02);
+
+  /* lamplight, then the dark, then the thing that is a hole in both */
+  const lx = S.px * cell + cell / 2, ly = S.py * cell + cell / 2;
+  const r = cell * (2.4 + S.lamp * 5.4) * (S.mode === 'hide' ? 0.5 : 1) * flick * (room.dim ? room.dim : 1);
+  const warm = ctx.createRadialGradient(lx, ly, 0, lx, ly, r);
+  warm.addColorStop(0, 'rgba(240,176,84,.20)');
+  warm.addColorStop(0.45, 'rgba(240,176,84,.10)');
+  warm.addColorStop(1, 'rgba(240,176,84,0)');
+  ctx.fillStyle = warm; ctx.fillRect(0, 0, w, h);
+
+  const dark = ctx.createRadialGradient(lx, ly, 0, lx, ly, r);
+  /* Not quite to black: past the lamp the room stays a rumour of itself, because he has
+     worked in here for nineteen years and his eyes know the shape of it without being told. */
+  dark.addColorStop(0, 'rgba(2,3,5,0)');
+  dark.addColorStop(0.40, 'rgba(2,3,5,.06)');
+  dark.addColorStop(0.62, 'rgba(2,3,5,.42)');
+  dark.addColorStop(0.82, 'rgba(2,3,5,.80)');
+  dark.addColorStop(1, 'rgba(2,3,5,' + (0.90 + (room.dim ? 0.06 : 0)) + ')');
+  ctx.fillStyle = dark; ctx.fillRect(0, 0, w, h);
+
+  if(S.it.room === S.room) drawIt(S.it.x, S.it.y, performance.now() / 400);
+
+  if(grain){
+    ctx.globalAlpha = 0.5;
+    ctx.drawImage(grain, -rnd(40), -rnd(40), w + 80, h + 80);
+    ctx.globalAlpha = 1;
+  }
+  ctx.restore();
+}
+/* ---------------------------------------------------------------- talking */
+let scene = [], sIdx = 0, toks = [], shown = 0, typing = false, typeT = 0, choiceSel = 0, choiceList = null;
+let afterScene = null;
+
+function say(who, text, cls){
+  S.mode = 'text';
+  $choices.classList.remove('on');
+  $box.classList.add('on');
+  $who.textContent = who || '';
+  $who.className = 'who' + (cls ? ' ' + cls : '');
+  toks = tokens(text); shown = 0; typing = true; typeT = performance.now();
+  $cue.classList.remove('on');
+  $txt.innerHTML = '';
+}
+function finishTyping(){ shown = toks.length; typing = false; $txt.innerHTML = paintSafe(toks, shown); $cue.classList.add('on'); }
+function typeTick(now){
+  if(!typing) return;
+  const want = Math.floor((now - typeT) / 17);
+  if(want > shown){
+    const to = Math.min(toks.length, want);
+    if(to > shown && (to - shown) > 0 && chance(0.5)) sfx.chalk();
+    shown = to;
+    $txt.innerHTML = paintSafe(toks, shown);
+    if(shown >= toks.length){ typing = false; $cue.classList.add('on'); }
+  }
+}
+function closeText(){ $box.classList.remove('on'); $choices.classList.remove('on'); }
+
+/* A step that starts something of its own — another scene, a choice, the slate, an ending —
+   must not be walked past. The token says whether the ground moved under us. */
+let sceneToken = 0;
+function runScene(steps, done){
+  sceneToken++;
+  scene = steps.slice(); sIdx = 0; afterScene = done || null;
+  stepScene();
+}
+function busyElsewhere(){ return !!(choiceList || slateG || hideG || S.mode === 'over'); }
+function stepScene(){
+  if(sIdx >= scene.length){
+    closeText();
+    const f = afterScene; afterScene = null; scene = [];
+    if(f) f(); else resumePlay();
+    return;
+  }
+  const s = scene[sIdx++];
+  if(typeof s === 'function' || s.do){
+    const t = sceneToken;
+    (typeof s === 'function' ? s : s.do)();
+    if(t !== sceneToken || busyElsewhere()) return;
+    return stepScene();
+  }
+  if(s.say != null){ say(s.who, s.say, s.cls); return; }
+  if(s.sayFn){ say(s.who, s.sayFn(), s.cls); return; }
+  if(s.choose){ return offerChoices(s.choose); }
+  if(s.slate){ return openSlate(s.slate); }
+  if(s.wait){ closeText(); setTimeout(stepScene, s.wait); return; }
+  if(s.scene){ const nx = SCENES[s.scene]; scene = (typeof nx === 'function' ? nx() : nx).slice(); sIdx = 0; return stepScene(); }
+  if(s.end){ return ending(s.end); }
+  return stepScene();
+}
+/* a choice he has lost the words for is still on the list, and still unreadable, which is
+   the point: you can pick it, you just cannot know what you are picking any more */
+function offerChoices(list){
+  choiceList = list.filter(c => !c.if || c.if());
+  choiceSel = 0;
+  S.mode = 'text';
+  $box.classList.remove('on');
+  $choices.classList.add('on');
+  renderChoices();
+}
+function renderChoices(){
+  $choices.innerHTML = choiceList.map((c, i) =>
+    '<div class="ch' + (i === choiceSel ? ' sel' : '') + '">' + fmt(c.t) + '</div>').join('');
+}
+function takeChoice(){
+  const c = choiceList[choiceSel];
+  $choices.classList.remove('on');
+  choiceList = null;
+  sfx.good();
+  if(c.do) c.do();
+  if(c.then){ scene = c.then.concat(scene.slice(sIdx)); sIdx = 0; }
+  stepScene();
+}
+
+/* ---------------------------------------------------------------- the line as a graph */
+const NEIGHBOURS = {};
+(function buildGraph(){
+  for(const id in ROOMS){
+    NEIGHBOURS[id] = [];
+    const l = ROOMS[id].links || {};
+    for(const k in l) if(NEIGHBOURS[id].indexOf(l[k][0]) < 0) NEIGHBOURS[id].push(l[k][0]);
+  }
+})();
+function roomPath(from, to){
+  if(from === to) return [];
+  const seen = { [from]:true }, q = [[from]];
+  while(q.length){
+    const p = q.shift(), last = p[p.length - 1];
+    for(const n of NEIGHBOURS[last] || []){
+      if(seen[n]) continue;
+      seen[n] = true;
+      const np = p.concat([n]);
+      if(n === to) return np.slice(1);
+      q.push(np);
+    }
+  }
+  return [];
+}
+
+/* ---------------------------------------------------------------- the one that counts */
+const IT = S.it;
+function wakeIt(room){
+  IT.room = room; IT.awake = true; IT.gate = 0; IT.busy = 0; IT.heat = 0;
+  const r = ROOMS[room];
+  const spot = findChar(r, 'A') || { x:1, y:1 };
+  IT.x = spot.x; IT.y = spot.y;
+  drone(true, 38);
+}
+function sleepIt(){ IT.awake = false; IT.room = null; drone(false); setTick('', true); }
+
+function setTick(word, far){
+  S.tickWord = word; S.tickFar = far;
+  $tick.textContent = word;
+  $tick.className = 'tick' + (far ? ' far' : '');
+}
+/* What you wrote in the ledger is not flavour. A gate you had not earned gave it your
+   handwriting and it comes at you a step quicker for the rest of the night. A blank page
+   left the section open instead of telling it a lie, so it has nothing to follow and has
+   to do the whole thing the slow way. */
+function itPace(){
+  const base = IT.room === S.room ? 3 : 5;
+  if(S.flags.ledger === 'guess') return base - 1;
+  if(S.flags.ledger === 'blank') return base + 1;
+  return base;
+}
+
+/* One beat of the world. It happens when you do something, and only then — for now. */
+function beat(opts){
+  opts = opts || {};
+  S.beat++;
+  if(S.lamp > 0) S.lamp = Math.max(0, S.lamp - 0.0055);
+  if(opts.loud) IT.heat = 6;
+  /* refuse it your name and it stops treating you as somebody it is looking for and starts
+     treating you as an object in a room, and objects do not get put down and forgotten */
+  else if(IT.heat > 0 && (S.flags.name !== 'none' || S.beat % 2 === 0)) IT.heat--;
+  itBeat();
+  updateHud();
+  /* it comes for you in the box whether or not you touch the oil can: you cannot
+     wait this out by standing still upstairs */
+  if(S.act === 'box' && !S.flags.itAwake && S.beat > 70 && typeof trigger_itComes === 'function') trigger_itComes();
+}
+function itBeat(){
+  if(!IT.awake) return;
+  if(IT.busy > 0){
+    IT.busy--;
+    setTick(YAN[IT.busy % YAN.length], IT.room !== S.room);
+    if(IT.room === S.room) sfx.count(IT.busy);
+    if(IT.busy === 0){ IT.gate = 0; thrown = null; }
+    return;
+  }
+  IT.gate++;
+  setTick(YAN[(IT.gate - 1) % YAN.length], IT.room !== S.room);
+  if(IT.room === S.room) sfx.count(IT.gate);
+  if(IT.gate >= itPace()){
+    IT.gate = 0;
+    itMove();
+  }
+}
+function itMove(){
+  if(thrown && thrown.room === IT.room){        // it cannot walk past a thing uncounted
+    if(IT.x === thrown.x && IT.y === thrown.y){ IT.busy = thrown.marks; return; }
+    const was = IT.x + ',' + IT.y;
+    stepToward(thrown.x, thrown.y);
+    /* if a pile has got itself behind something it cannot reach, it gives up on it
+       eventually rather than blundering at a crate all night */
+    thrown.tries = (thrown.tries || 0) + (was === IT.x + ',' + IT.y ? 2 : 0);
+    if(thrown.tries > 6) thrown = null;
+    return;
+  }
+  if(IT.room !== S.room){
+    const p = roomPath(IT.room, S.room);
+    if(p.length){
+      IT.room = p[0];
+      const r = ROOMS[IT.room];
+      const e = findChar(r, 'A') || findChar(r, 'D') || { x:1, y:1 };
+      IT.x = e.x; IT.y = e.y;
+      if(IT.room === S.room){ sfx.door(); shake(3); onItArrives(); }
+      else sfx.knock();
+    }
+    return;
+  }
+  if(S.mode === 'hide' && IT.heat <= 0) { wander(); return; }
+  if(IT.heat > 0 || S.mode !== 'hide') stepToward(S.px, S.py);
+  else wander();
+}
+/* It does not find its way round things cleverly. It goes at you along the longer axis,
+   takes the other one if that is blocked, and blunders if both are. That is enough:
+   it never has to be clever, it only has to be inevitable. */
+function stepToward(tx, ty){
+  const r = ROOMS[IT.room];
+  const dx = Math.sign(tx - IT.x), dy = Math.sign(ty - IT.y);
+  const wide = Math.abs(tx - IT.x) >= Math.abs(ty - IT.y);
+  const opts = (wide ? [[dx, 0], [0, dy]] : [[0, dy], [dx, 0]]).filter(d => d[0] || d[1]);
+  for(const d of opts){
+    const nx = IT.x + d[0], ny = IT.y + d[1];
+    if(walkable(r, nx, ny)){ IT.x = nx; IT.y = ny; return checkCaught(); }
+  }
+  wander();
+}
+function wander(){
+  const r = ROOMS[IT.room];
+  const d = pick([[1,0],[-1,0],[0,1],[0,-1]]);
+  const nx = IT.x + d[0], ny = IT.y + d[1];
+  if(walkable(r, nx, ny)){ IT.x = nx; IT.y = ny; checkCaught(); }
+}
+function checkCaught(){
+  if(IT.room !== S.room) return;
+  if(S.mode === 'hide') return;
+  if(IT.x === S.px && IT.y === S.py) caught();
+}
+function onItArrives(){
+  if(S.mode === 'play') flash('It is in the room with you.');
+}
+
+/* ---------------------------------------------------------------- being counted */
+function caught(){
+  S.counted++;
+  const words = takeWords(S.counted);
+  S.mode = 'text';
+  slateG = null; hideG = null;      // whatever was being counted, it is over now
+  closeSlate();
+  drone(false);
+  sfx.bad(); shake(9);
+  const lost = words.length
+    ? 'It reaches past your face and takes the ' + (words.length > 1 ? 'words' : 'word') + ' for ' + wordList(words) +
+      ' out of you, the way you would take a hair off a coat. You will not get ' +
+      (words.length > 1 ? 'them' : 'it') + ' back. You know that the way you know the line.'
+    : 'There is nothing left in you worth taking. It goes through you a while anyway, to be sure.';
+  runScene([
+    { who:'', say:'It has you by the front of your *coat* and it is not angry. It is *counting* you. Fingers on your ribs, one at a time, and it says the word for each one under its breath.', cls:'it' },
+    { who:'', say:'_' + YAN[Math.min(YAN.length - 1, S.counted)] + '_', cls:'it' },
+    { who:'', say:lost },
+    { do(){ recover(); } },
+  ]);
+}
+function recover(){
+  const back = CHECKPOINT[S.act] || { room:'desk', x:5, y:5 };
+  S.room = back.room; S.px = back.x; S.py = back.y;
+  S.mode = 'play';
+  IT.room = back.itRoom || 'platform'; IT.gate = 0; IT.busy = 0; IT.heat = 0;
+  if(IT.awake) drone(true, 38);
+  runScene([
+    { who:'', say:'You come to on your feet, walking, somewhere you did not choose. That is the worst of it. Your legs kept the count while you were out.' },
+    { do(){ if(typeof onHideSurvived === 'function') onHideSurvived(); } },
+  ]);
+}
+const CHECKPOINT = {
+  box:    { room:'desk', x:5, y:5, itRoom:'frame' },
+  line:   { room:'platform', x:10, y:3, itRoom:'under' },
+  deep:   { room:'relay', x:10, y:7, itRoom:'cutting' },
+  last:   { room:'siding', x:4, y:5, itRoom:'tunnel' },
+};
+
+/* ---------------------------------------------------------------- your pocket */
+let thrown = null;
+function scatterHandful(){
+  if(!S.pocket.length){
+    flash('Your pocket is *empty*. You knew that, and checked anyway.');
+    return;
+  }
+  const mat = S.pocket.pop();
+  const m = MATERIAL[mat];
+  const d = DIRS[S.face];
+  const r = ROOMS[S.room];
+  let tx = S.px, ty = S.py;
+  for(let i = 0; i < 3; i++){
+    const nx = tx + d.x, ny = ty + d.y;
+    if(!walkable(r, nx, ny)) break;
+    tx = nx; ty = ny;
+  }
+  thrown = { room:S.room, x:tx, y:ty, marks:m.marks, mat };
+  sfx.scatter();
+  flash('You throw the *' + m.name + '*. It goes everywhere, which is the idea.');
+  if(IT.room === S.room){ IT.heat = 0; IT.gate = 0; }
+  beat({});
+  draw();
+}
+
+/* ---------------------------------------------------------------- hiding, and breathing */
+let hideG = null;
+function enterHide(){
+  S.mode = 'hide';
+  S.hideAt = { x:S.px, y:S.py };
+  sfx.step(false);
+  if(IT.room === S.room) startBreath();
+  else {
+    flash('You fold yourself into ' + (ROOMS[S.room].hideName || 'the dark') + ' and make yourself small.');
+    draw();
+  }
+}
+function leaveHide(){
+  if(hideG) return;
+  S.mode = 'play';
+  flash('You come out. The air is colder than where you were.');
+  draw();
+}
+function startBreath(){
+  /* the dog is warm and cannot be told why this matters; an honest ledger leaves the box
+     itself a little on your side */
+  const need = 8 + rnd(5) + (S.dogHere ? 3 : 0) - (S.flags.ledger === 'truth' ? 2 : 0);
+  hideG = { need, mine:0, its:0, gasps:0, period:1080, next:performance.now() + 900, used:false, done:false };
+  $slate.classList.add('on');
+  $('slateLbl').textContent = 'hold still';
+  $('slateHint').innerHTML = fmt('It is counting the room. Lay a breath on every beat of your own heart — *A* on the beat, not before it.');
+  sizeSlate();
+}
+function breathTick(now){
+  if(!hideG) return;
+  if(now >= hideG.next){
+    if(!hideG.used) gasp();                        // a beat you let go by
+    if(!hideG) return;                             // the third gasp ends it there and then
+    hideG.used = false;
+    hideG.next += hideG.period;
+    hideG.its++;
+    sfx.heart();
+    if(IT.room === S.room) itBeat();
+    if(hideG.its >= hideG.need) finishBreath();
+  }
+  drawSlate();
+}
+function breathPress(){
+  if(!hideG || hideG.done) return;
+  const now = performance.now();
+  const d = Math.abs(now - hideG.next);
+  const early = hideG.next - now;
+  if(d < 300 || (early > hideG.period - 300)){
+    if(hideG.used){ gasp(); return; }
+    hideG.used = true; hideG.mine++;
+    sfx.chalk();
+  } else gasp();
+}
+function gasp(){
+  if(!hideG || hideG.done) return;
+  hideG.gasps++;
+  sfx.gasp(); shake(4);
+  IT.heat = 6;
+  if(IT.room === S.room){ IT.gate = itPace() - 1; }
+  if(hideG.gasps >= 3){
+    hideG.done = true; hideG = null; closeSlate();
+    S.mode = 'play';
+    caught();
+  }
+}
+function finishBreath(){
+  hideG.done = true;
+  const gasps = hideG.gasps;
+  hideG = null;
+  closeSlate();
+  S.mode = 'play';
+  IT.heat = 0;
+  IT.busy = 0; IT.gate = 0;
+  const p = roomPath(IT.room, 'tunnel');
+  IT.room = p.length ? p[0] : IT.room;
+  sfx.door();
+  runScene([
+    { who:'', say: gasps ? 'It stops. It has the room counted, all but the part of it that is you, and it goes out with its head down, still saying the words.'
+                         : 'It finishes the room and goes, and you do not move for a long time after the last word.' },
+    { do(){ if(typeof onHideSurvived === 'function' && onHideSurvived()) return; S.mode = 'play'; draw(); } },
+  ]);
+}
+
+/* ---------------------------------------------------------------- the slate */
+let slateG = null;
+function sizeSlate(){
+  const w = Math.min(360, (window.innerWidth || 380) - 30);
+  const h = Math.min(120, Math.max(60, (window.innerHeight || 250) - 120));
+  const d = Math.min(2, window.devicePixelRatio || 1);
+  sc.width = w * d; sc.height = h * d;
+  sc.style.width = w + 'px'; sc.style.height = h + 'px';
+  sctx.setTransform(d, 0, 0, d, 0, 0);
+}
+function closeSlate(){ $slate.classList.remove('on'); }
+
+/* The counting game. You never see a number; you see marks, and you match marks to marks,
+   which is how counting was done before anybody thought of numbers. */
+function openSlate(cfg){
+  slateG = Object.assign({
+    n:5, phase:'listen', laid:0, i:0, next:0, gap:560, drift:0,
+    label:'listen', hint:'', show:null, onDone:null,
+  }, cfg);
+  S.mode = 'slate';
+  closeText();
+  $slate.classList.add('on');
+  sizeSlate();
+  slateG.next = performance.now() + 700;
+  $('slateLbl').textContent = slateG.label;
+  $('slateHint').innerHTML = fmt(slateG.hint || '');
+  if(slateG.phase === 'lay') startLaying();
+}
+function slateTick(now){
+  if(!slateG) return;
+  if(slateG.phase === 'listen'){
+    if(now >= slateG.next){
+      slateG.i++;
+      sfx.thud(); shake(2);
+      slateG.next = now + slateG.gap * (0.86 + Math.random() * 0.3);
+      if(slateG.i >= slateG.n){ slateG.phase = 'gap'; slateG.next = now + 900; }
+    }
+  } else if(slateG.phase === 'gap'){
+    if(now >= slateG.next) startLaying();
+  }
+  drawSlate();
+}
+function startLaying(){
+  slateG.phase = 'lay';
+  slateG.laid = 0; slateG.fades = {};
+  $('slateLbl').textContent = 'lay it down';
+  $('slateHint').innerHTML = fmt(slateG.layHint || 'One mark for every one you heard. *A* to lay a mark, *B* when the gate is right.');
+}
+function slatePress(){
+  if(!slateG) return;
+  if(slateG.phase === 'listen' || slateG.phase === 'gap') return;
+  if(slateG.phase === 'lay'){
+    slateG.laid++;
+    sfx.chalk();
+    /* his hand is not what it was: sometimes a mark he has already laid goes faint,
+       sometimes one arrives that he did not lay */
+    if(slateG.drift && Math.random() < slateG.drift){
+      if(chance(0.5)) slateG.fades[rnd(Math.max(1, slateG.laid))] = true;
+      else slateG.laid++;
+    }
+  }
+}
+function slateDone(){
+  if(!slateG || slateG.phase !== 'lay') return;
+  const ok = slateG.laid === slateG.n;
+  const over = slateG.laid > slateG.n;
+  slateG.phase = 'judge';
+  $('slateLbl').textContent = ok ? 'the gates match' : 'the gates do not match';
+  $('slateHint').innerHTML = fmt(ok ? 'Right. You can still do this much.'
+    : over ? 'Too many legs on your gate. You have counted something twice, or something has counted itself.'
+           : 'Your gate is short. Something went past that you did not mark.');
+  sfx[ok ? 'good' : 'bad']();
+  drawSlate();
+  const cb = slateG.onDone;
+  setTimeout(() => {
+    closeSlate();
+    const g = slateG; slateG = null;
+    if(cb) cb(ok, g.laid);
+  }, 1500);
+}
+function drawSlate(){
+  const w = parseFloat(sc.style.width), h = parseFloat(sc.style.height);
+  sctx.clearRect(0, 0, w, h);
+  if(hideG){
+    /* two gates, one above the other: what it has counted of the room, and what you have
+       managed to breathe. When its gate is full it goes. Yours only has to keep up. */
+    const size = 17, lx = 18;
+    sctx.font = '8px -apple-system,Helvetica,Arial,sans-serif';
+    sctx.textAlign = 'left'; sctx.textBaseline = 'alphabetic';
+    sctx.fillStyle = '#7d8494';
+    sctx.fillText('ITS COUNT', lx, h * 0.22);
+    drawGate(sctx, lx, h * 0.28, hideG.its, size, '#d8453a');
+    sctx.fillStyle = '#7d8494';
+    sctx.fillText('YOUR BREATH', lx, h * 0.62);
+    drawGate(sctx, lx, h * 0.68, hideG.mine, size, '#e9e3d6');
+    // the heart, so you can see the beat you are meant to be laying on
+    const beat = 1 - clamp((hideG.next - performance.now()) / hideG.period, 0, 1);
+    const cx = w - 34, cy = h / 2;
+    sctx.strokeStyle = 'rgba(125,132,148,.35)'; sctx.lineWidth = 1;
+    sctx.beginPath(); sctx.arc(cx, cy, 13, 0, 7); sctx.stroke();
+    sctx.fillStyle = 'rgba(216,69,58,' + (0.30 + 0.62 * Math.pow(beat, 7)) + ')';
+    sctx.beginPath(); sctx.arc(cx, cy, 4 + 8 * Math.pow(beat, 9), 0, 7); sctx.fill();
+    // one red mark for every breath you let get away from you
+    sctx.strokeStyle = '#d8453a'; sctx.lineWidth = 2; sctx.lineCap = 'round';
+    for(let i = 0; i < hideG.gasps; i++){
+      sctx.beginPath();
+      sctx.moveTo(cx - 9 + i * 9, cy + 22); sctx.lineTo(cx - 6 + i * 9, cy + 31);
+      sctx.stroke();
+    }
+    return;
+  }
+  if(!slateG) return;
+  const g = slateG;
+  if(g.phase === 'listen' || g.phase === 'gap'){
+    const t = performance.now();
+    const since = t - (g.next - g.gap);
+    for(let i = 0; i < 3; i++){
+      const p = ((since / g.gap) + i * 0.34) % 1;
+      sctx.fillStyle = 'rgba(80,92,106,' + (0.25 + 0.35 * Math.sin(p * Math.PI)) + ')';
+      sctx.fillRect(w * (1 - p) - 26, h / 2 - 11, 22, 22);
+    }
+    sctx.fillStyle = '#39424e'; sctx.fillRect(0, h / 2 + 13, w, 2);
+    return;
+  }
+  const lx = 18;
+  const rows = (g.show != null ? 1 : 0) + 1 + (g.phase === 'judge' && g.show == null ? 1 : 0);
+  let y = h / 2 - rows * 21 + 6;
+  sctx.font = '8px -apple-system,Helvetica,Arial,sans-serif';
+  sctx.textAlign = 'left'; sctx.textBaseline = 'alphabetic';
+  if(g.show != null){
+    sctx.fillStyle = '#7d8494';
+    sctx.fillText(g.showLabel || 'ON THE DOOR', lx, y); y += 6;
+    drawGate(sctx, lx, y, g.show, 19, '#9aa3b0');
+    y += 36;
+  }
+  sctx.fillStyle = '#7d8494';
+  sctx.fillText('YOUR GATE', lx, y); y += 6;
+  drawGate(sctx, lx, y, g.laid, 19, '#e9e3d6', i => g.fades && g.fades[i] ? 0.18 : 1);
+  if(g.phase === 'judge' && g.show == null){
+    y += 36;
+    sctx.fillStyle = '#7d8494'; sctx.fillText('WHAT WENT PAST', lx, y); y += 6;
+    drawGate(sctx, lx, y, g.n, 19, '#d8453a');
+  }
+}
+
+/* ---------------------------------------------------------------- odds and ends */
+/* a line that does not stop you walking: it says itself and then gets out of the way */
+let flashT = 0, flashOn = false;
+function flash(text){
+  const keep = S.mode;
+  say('', text);
+  S.mode = keep;
+  flashOn = true; flashT = performance.now();
+}
+function flashTick(now){
+  if(!flashOn) return;
+  if(S.mode === 'text' || S.mode === 'slate'){ flashOn = false; return; }
+  if(now - flashT > 2600 + toks.length * 14){ flashOn = false; closeText(); }
+}
+function resumePlay(){
+  closeText();
+  S.mode = 'play';
+  draw();
+}
+function updateHud(){
+  $gate.innerHTML = gateSVG(IT.awake ? IT.gate : 0, 11, IT.room === S.room ? '#d8453a' : '#8d8578');
+  $('gateCap').textContent = IT.awake ? (IT.busy > 0 ? 'it is busy' : IT.room === S.room ? 'in here' : 'its count') : 'the line';
+  $flame.style.width = Math.round(clamp(S.lamp, 0, 1) * 100) + '%';
+  $pocket.innerHTML = fmt(pocketWord());
+}
+/* ---------------------------------------------------------------- the night, in order */
+/* Halberd Box sits on the Caul line, single road, worked at night because the quarry blasts
+   by day. The signalman counts the cars of every train that passes and writes the tally in
+   the ledger. It has never been bookkeeping. What is counted is closed. What is not counted
+   stays open, and a thing that is open can be walked through. */
+
+const RULE = 'No train is complete until its *tail lamp* has been seen to pass. A train that goes by without its tail lamp has left part of itself in the section, and the section is not clear, whatever the instrument tells you.';
+
+function take(mat, what){
+  S.pocket.push(mat);
+  flash('Into your *' + (hasWord('coat') ? 'coat' : 'coat') + '* pocket: *' + (what || MATERIAL[mat].name) + '*. You cannot say how much. Only that it is a weight, and that a weight is something.');
+  updateHud();
+}
+function fillLamp(){
+  S.lamp = 1;
+  sfx.lamp();
+  flash('You fill the *lamp* and the room gets bigger by the size of a room.');
+  updateHud();
+}
+
+const SCENES = {
+
+/* ------------------------------------------------------------------ prologue */
+prologue: [
+  { who:'Halberd Box, the Caul line', say:'The small hours. Rain on the roof like somebody laying grit on a floor, steady, endless, not going anywhere.' },
+  { who:'', say:'Nineteen years you have sat in this box and counted what went past. You are good at it. It is the only thing in your life that anybody would call a skill.' },
+  { who:'The Rule Book', say:RULE },
+  { who:'', say:'So: a train comes. You count the cars. You see the tail lamp go by. You write the tally in the *ledger*, and the section is closed behind it, and nothing follows it in.' },
+  { who:'', say:'That is the job. Down the line, the quarry is sending its spoil south. Here comes the first of them now.' },
+  { slate:{ n:6, gap:520, label:'listen', hint:'Cars over the joint, one at a time. Do not count them — you have never counted them. *Listen*, and hold them.',
+            layHint:'Now lay one mark for each. *A* lays a mark. *B* when your gate is right.',
+            onDone(ok){ runScene(ok ? SCENES.prologueGood : SCENES.prologueMiss); } } },
+],
+prologueGood: [
+  { who:'', say:'Tail lamp. Red, small, going away. You lay the gate in the ledger and the night closes up behind it like water.' },
+  { scene:'prologueLong' },
+],
+prologueMiss: [
+  { who:'', say:'You lay the gate anyway. Nobody checks. Nobody has ever checked. The tail lamp goes away south and the night closes over it, near enough.' },
+  { do(){ S.flags.sloppy = true; }},
+  { scene:'prologueLong' },
+],
+prologueLong: [
+  { who:'', say:'Then the long one. The spoil train, the one that takes a quarter of an hour to go past, and you settle in with your elbows on the sill the way you have a thousand times.' },
+  { who:'', sayFn: () => cargoLine() },
+  { slate:{ n:13, gap:400, drift:0.5, label:'listen', hint:'This one is long. Hold them all.',
+            layHint:'Lay them down. *A* for a mark, *B* when it is right. Your hand is cold.',
+            onDone(){ runScene(SCENES.prologueLost); } } },
+],
+prologueLost: [
+  { who:'', say:'Halfway down it, the lamps go out.' },
+  { who:'', say:'Not all at once. In order. The one at the crossing, then the one at the cutting, then the one on the bridge, each going dark as the train reaches it, like a hand going along a row of candles.' },
+  { who:'', say:'And you lose it. You feel it go, the way you would feel a coin go through a hole in a pocket. You are looking straight at the cars and they mean nothing. They are just *things going past*.' },
+  { who:'', say:'The last one passes. You lean out into the rain with your neck craned and your mouth open, and there is no tail lamp on it.' },
+  { who:'', say:'The instrument says LINE CLEAR. The instrument is a brass needle on a spring and it does not know anything.' },
+  { who:'', say:'The *ledger* is open. The pen is in your hand. You have to write something.' },
+  { choose:[
+    { t:'Write a gate. Any gate. Nobody checks.', do(){ S.flags.ledger = 'guess'; }, then:[
+      { who:'', say:'You lay marks until the line looks like the lines above it. It looks right. It looks exactly like nineteen years of looking right.' },
+      { who:'', say:'And somewhere south of here, something that was counted out is counted in, because you have told the book that it was.' },
+    ]},
+    { t:'Leave the line blank.', do(){ S.flags.ledger = 'blank'; }, then:[
+      { who:'', say:'You do not write. The page stays white, and white is *open*, and the section is open with it, and whatever wants to come up it can come up it.' },
+      { who:'', say:'But you have not lied. In nineteen years you have not lied in this book, and you are not starting tonight.' },
+    ]},
+    { t:'Write: NO TAIL LAMP SEEN.', do(){ S.flags.ledger = 'truth'; }, then:[
+      { who:'', say:'Four words, and your hand does not shake until after. It is the worst thing you can write in a ledger. It means the section behind a train is not clear. It means *part of it is still coming*.' },
+      { who:'', say:'The ink sits up wet on the paper. The book, at least, is honest, and the box is honest with it, and that is a kind of wall.' },
+    ]},
+  ]},
+  { who:'', say:'Then the bells stop.' },
+  { who:'', say:'All three of them, the block bells you have listened to for nineteen years without once hearing them, gone quiet together. The needle drops off LINE CLEAR and sits in the middle, which is a position it does not have.' },
+  { who:'', say:'And down at the far end of the section, out in the rain, something says a word.' },
+  { who:'', say:'_yan_', cls:'it' },
+  { do(){ startAct('box'); } },
+],
+
+/* ------------------------------------------------------------------ act one: the box */
+boxOpen: [
+  { who:'', say:'*D-pad* walks you, a step to a press. *A* looks at whatever you are stood next to, opens doors, and puts you into a hiding place. *B* throws a handful of whatever is in your pocket.' },
+  { who:'', say:'Get something in your pocket. Get down the stairs. And do not go along the line without a *lamp* in your hand, whatever else you leave behind.' },
+],
+window: [
+  { who:'', say:'Through the window: the down line, black, and the rain going sideways through where the lamps should be.' },
+  { who:'', say:'You count the dark places where lights are supposed to be, and then you stop, because you cannot, and because the counting is what is wrong with tonight.' },
+],
+itComes: [
+  { who:'', say:'Underneath the box, something puts its weight on the bottom step.' },
+  { who:'', say:'The stair has nineteen steps. You know that the way you know your own hand. You listen to it come up, and it says a word for each one, and the words are not numbers, they are older than numbers, they are what shepherds used on these hills before anybody wrote anything down.' },
+  { who:'', say:'_yan. tan. tethera. methera. pimp._', cls:'it' },
+  { who:'', say:'*Get out of sight.* The squares with a faint ring round them are places a man will fit. Stand on one and press *A*.' },
+  { do(){ wakeIt('stair'); S.flags.met = true; } },
+],
+afterFirstHide: [
+  { who:'', say:'You sit in the dark with your knees against your chin and you work out, slowly, the shape of the thing that is happening.' },
+  { who:'', say:'It is counting the box. Every object in it, one word each, and when it has counted a room it goes on to the next, because it *cannot leave a thing uncounted*. That is not a habit. That is what it is made of.' },
+  { who:'', say:'And it is coming up the line to find the number that is missing. It knows one is missing. It has been out there in the dark being an incomplete thing since the moment your count fell out of your head.' },
+  { who:'', say:'There is a spare *tail lamp* in the lamp room, past the relay hut, if the door will have you. Put a lamp on the last car and the train is finished. Finish the train and the section closes. Close the section and it is on the other side of it.' },
+  { who:'', say:'That is the whole of your plan and you know exactly how thin it is.' },
+],
+
+/* ------------------------------------------------------------------ the dog */
+dog: [
+  { who:'Sixpence', say:'The dog is awake and has been for a while. He is not making a sound, which he has never once managed before in his life, and his eyes go to the stairs and then to you and then to the stairs.' },
+  { choose:[
+    { t:'Take him with you.', do(){ S.flags.dog = 'in'; S.dogHere = true; S.dogAt = { x:S.px, y:S.py }; }, then:[
+      { who:'', say:'He gets up against your leg and stays there. He will hear it before you do, every time. He will also breathe, and shift, and be a second living thing in a hiding place built for one.' },
+    ]},
+    { t:'Shut him in the stove room.', do(){ S.flags.dog = 'out'; }, then:[
+      { who:'', say:'You put him back in the basket and put the door between you and he does not argue, which is somehow the worst thing that has happened tonight.' },
+    ]},
+    { t:'Put him out the door. Let him run.', do(){ S.flags.dog = 'sent'; }, then:[
+      { who:'', say:'You open the door at the top of the stair and he goes down it like water going down a drain, out into the rain, north, away from all of this.' },
+      { who:'', say:'Something out there stops in the middle of a word to watch him go. A small warm thing, running, eminently countable.' },
+      { who:'', say:'You have bought yourself a while. You know precisely what you have bought it with.' },
+      { do(){ S.flags.dogGift = true; } },
+    ]},
+  ]},
+],
+
+/* ------------------------------------------------------------------ act two: the line */
+lineOpen: [
+  { who:'', say:'Out. The rain has that weight to it that means it has been on since before you were born and will be on after.' },
+  { who:'', say:'The ballast is loud. The rail is loud. The sleepers and the grass are quiet. It hears *loud*, and it comes to what it hears, and on a night like this the difference between a quiet square and a loud one is the whole of your life.' },
+],
+gatepost: [
+  { who:'', say:'Marks cut into the post. Gate after gate, five and five and five, going down the wood and under the grass and, you would bet anything, on under the soil.' },
+  { who:'', say:'The crossing keeper\'s cottage has been empty since before your time. Somebody stood here a great many nights making sure of something.' },
+],
+cuttingArrive: [
+  { who:'', say:'The chalk goes up white on both sides of you and every white foot of it is *marked*. Gates in their thousands, cut with a nail, cut with a stone, cut with a fingernail where the nail ran out.' },
+  { who:'', say:'Some of them are laid over the top of older ones. Somebody has been counting the same thing again and again, and getting a different answer, and starting over.' },
+  { who:'', say:'And in among them, up at the height of a man\'s face, the marks stop being marks and start being letters, and the letters say a question.' },
+  { who:'', say:'*What are you called?*', cls:'it' },
+  { who:'', say:'It is not written. You are reading it out of the shapes because the shapes are being made to mean it. It wants to put you in its order. A thing with a name has a place in the count.' },
+  { choose:[
+    { t:'Say your name.', do(){ S.flags.name = 'true'; }, then:[
+      { who:'', say:'You say it out loud in a cutting in the rain, and the chalk takes it, and the marks go still all at once like birds landing.' },
+      { who:'', say:'Something a long way off repeats it back. Not in your voice. In the shape your voice makes when you are tired.' },
+      { who:'', say:'You are in the order now. You have a place in the count, which means you can be counted, and it also means — and you cannot yet see how — that you can *count back*.' },
+    ]},
+    { t:'Give it the dog\'s name.', if(){ return S.flags.dog === 'in' || S.flags.dog === 'out'; }, do(){ S.flags.name = 'dog'; }, then:[
+      { who:'', say:'"Sixpence," you say. A number for a name, which is a joke you are in no position to enjoy.' },
+      { who:'', say:'The chalk takes it. Somewhere behind you a small black dog lifts his head, for no reason he could give you, and does not put it down again.' },
+    ]},
+    { t:'Say nothing at all.', do(){ S.flags.name = 'none'; }, then:[
+      { who:'', say:'You keep your mouth shut and walk on with your shoulders up round your ears.' },
+      { who:'', say:'Behind you the chalk gives up on letters. You are not a *who* to it now. You are a *what*, an object in a room, and objects do not get spoken to. They get counted, and they get put where they belong.' },
+    ]},
+  ]},
+],
+marks: [
+  { who:'', say:'Up close you can see the newest ones. Still white at the edges, chalk dust not yet washed off. Laid tonight.' },
+  { who:'', say:'Somebody counted this cutting tonight, from end to end, and did not get a number they could live with.' },
+],
+
+/* ------------------------------------------------------------------ Quillan */
+quillan: [
+  { who:'', say:'There is a man in the relay hut sitting on an upturned crate with a lamp between his boots, and he is counting on his fingers, and he has run out of fingers, and he is going round again.' },
+  { who:'Quillan', say:'"Don\'t. Don\'t say it. If you say a word while I\'m in the middle I have to start at the beginning and I have been at the beginning since the summer."' },
+  { who:'', say:'You know the name on the older pages of the ledger. You have read his handwriting for nineteen years without once wondering what became of the hand.' },
+  { who:'Quillan', say:'"You lost your count." Not a question. "Aye. Everyone does, in the end. It only wants you to do it the once."' },
+  { who:'Quillan', say:'"I had a long train, same as you. Went by in the dark, same as you. And I put a figure in the book that I *hoped* was right, because I had a wife at home and it was raining and who in God\'s name checks."' },
+  { who:'Quillan', say:'"That\'s the whole of it. It isn\'t a curse, lad. There\'s no curse. There\'s just a thing out there that isn\'t finished, and it will not be able to rest until somebody finishes it, and it does not much mind who."' },
+  { who:'', say:'His lamp is not lit. You have been looking at him by your own light this whole time.' },
+  { who:'Quillan', say:'"Now. I\'m short. I\'ve been short since the summer and I can\'t find where. Would you lay a gate for me? Just listen to the relay and lay what you hear. I can\'t hold it any more, my hands go before my head does."' },
+  { choose:[
+    { t:'Lay the gate for him.', then:[
+      { slate:{ n:9, gap:470, drift:0.12, label:'listen', hint:'The relay clicks in the dark, over and over. Hold them.',
+                layHint:'Lay what you heard. *A* a mark, *B* to finish.',
+                onDone(ok){ S.flags.quillan = ok ? 'helped' : 'tried'; runScene(ok ? SCENES.quillanThanks : SCENES.quillanShort); } } },
+    ]},
+    { t:'Not for you. Not tonight.', do(){ S.flags.quillan = 'refused'; }, then:[
+      { who:'', say:'"No," you say. "I\'ve my own to do."' },
+      { who:'Quillan', say:'"...Aye. That\'s the right answer. That\'s what I\'d have said." He looks at his hands. "Mind the door, then. It\'s a dark door."' },
+      { who:'', say:'He does not look up again, and he does not stop counting, and he is still counting when you are a long way off.' },
+    ]},
+  ]},
+],
+quillanThanks: [
+  { who:'Quillan', say:'He watches your gate go down and something goes out of his shoulders. "That\'s it. That\'s where I was short. God. *Nine.* All summer for nine."' },
+  { who:'', say:'He says the number out loud and it lands in the hut like a dropped plate, because you have not heard a number said out loud all night, and you had not noticed until now.' },
+  { who:'Quillan', say:'"Right. The lamp room door\'s got a gate scratched beside the latch — that\'s how we open it, the ones of us that can\'t read a figure any more. Match the marks and it\'ll have you."' },
+  { who:'Quillan', say:'"I\'ll hold my light on it for you so you can see what you\'re matching. It\'s the only useful thing I\'ve done since the summer."' },
+  { do(){ S.flags.lit = true; } },
+],
+quillanShort: [
+  { who:'Quillan', say:'He looks at your gate a long while. "No. No, that\'s not it either." He sits back down. "Never mind, lad. It was good of you to try."' },
+  { who:'Quillan', say:'"Door\'s got a gate scratched beside the latch. Match it and it\'ll have you. I\'d hold my light on it for you, only —" He turns the lamp over in his hands. Dead as a stone. "Only."' },
+],
+quillanDoor: [
+  { who:'', say:'The lamp room door, and beside the latch a row of scratches, laid there for men who can no longer read a figure.' },
+  { do(){ openSlate({
+      n: 7 + rnd(4),
+      phase:'lay',
+      show:null, drift: S.flags.lit ? 0.1 : 0.42,
+      label:'match it',
+      layHint: S.flags.lit
+        ? 'Quillan holds his light on the scratches. Lay the same gate. *A* a mark, *B* when it matches.'
+        : 'You cannot see them. You found them with your thumb and you are laying from the memory of your thumb. *A* a mark, *B* when it matches.',
+      onDone(ok){ runScene(ok ? SCENES.doorOpen : SCENES.doorShut); },
+    });
+    if(S.flags.lit){ slateG.show = slateG.n; slateG.showLabel = 'ON THE DOOR'; }
+  } },
+],
+doorOpen: [
+  { who:'', say:'The latch goes over under your thumb with a small honest click, and the lamp room lets you in, smelling of paraffin and wicks and every night of your working life.' },
+  { do(){ S.flags.lampDoor = true; } },
+],
+doorShut: [
+  { who:'', say:'The latch does not move. Somewhere behind you, out on the ballast, something stops in the middle of a word because it has heard you get it wrong.' },
+  { do(){ IT.heat = 6; if(IT.awake) IT.gate = itPace() - 1; } },
+],
+tailLamp: [
+  { who:'', say:'A spare tail lamp on its hook. Red glass in a brass case, heavier than it has any right to be, and the last thing in the world a train shows you before it leaves you alone.' },
+  { do(){ S.has.lamp = true; sfx.good(); flash('You take the *tail lamp*. It bangs against your knee at every step and you would not put it down for anything.'); } },
+],
+
+/* ------------------------------------------------------------------ the bridge and the tunnel */
+bridge: [
+  { who:'', say:'On the bridge the wind gets under the lamp and the flame lies down flat and the whole world goes to the size of your two hands.' },
+  { who:'', say:'Below, the sleepers run away south in a ladder. Down at the far end of them, where the siding is, there is a red light standing still.' },
+  { who:'', say:'There is no train in the siding. There has not been a train in the siding since before Quillan. There is a red light in it all the same, and it is at the height of a tail lamp on a car.' },
+],
+dogTaken: [
+  { who:'', say:'Halfway over the bridge Sixpence stops dead with his feet planted and will not come.' },
+  { who:'', say:'Something out in the rain says a name. Your name, in the shape your voice makes when you are tired — except it is not you it is calling, because the name it is saying is the one you gave it, and the one you gave it was his.' },
+  { who:'Sixpence', say:'He goes. Straight past you, off the bridge, down the bank into the dark, at a dead run, like he has been called in for his tea.' },
+  { who:'', say:'You do not hear him again. Out in the rain something starts a count it has been waiting all night to start, and it sounds, if a thing like that can sound like anything, *pleased*.' },
+  { do(){ S.dogHere = false; S.flags.dogGone = true; IT.busy = 20; } },
+],
+dogFetched: [
+  { who:'', say:'Out on the bridge you hear, a long way back up the line, a door go.' },
+  { who:'', say:'Not the box door. The little one at the top of the stair, the one you shut behind a small black dog because you thought a shut door was a kindness.' },
+  { who:'', say:'Something says the name you gave it. It says it patiently, the way you would call a dog in from a field, and then it says it again nearer the ground.' },
+  { who:'', say:'And then it stops saying it, because it does not need to any more.' },
+  { do(){ S.flags.dogGone = true; IT.busy = 20; } },
+],
+tunnelArrive: [
+  { who:'', say:'The tunnel mouth. Your lamp goes into it about the length of your arm and then stops, the way light stops at water.' },
+  { who:'', say:'It lives in there, when it is not out here. You can tell because the marks on the brickwork are laid in the wet where nothing could have dried, and they are fresh, and they go in.' },
+],
+voiceLure: [
+  { who:'', say:'Out of the tunnel, quite clearly, somebody says your name.' },
+  { who:'', say:'It is your voice. Not an impression of it — your voice, the one you hear from inside your own head, which nobody else has ever heard and nobody else could copy.' },
+  { who:'', say:'"I\'ve got the count," it says, reasonably. "Come and see. I\'ve got it here. It was under the ledger the whole time."' },
+  { choose:[
+    { t:'Go into the tunnel.', then:[
+      { who:'', say:'You take two steps in and your lamp shows you a great deal of nothing, and then a hand comes out of the nothing and lays a mark on your chest with a fingernail.' },
+      { do(){ caught(); } },
+    ]},
+    { t:'Keep walking. It is not you.', do(){ S.flags.resisted = true; }, then:[
+      { who:'', say:'You keep to the ballast and you do not look in, and behind you your own voice keeps talking in a perfectly reasonable way until you are past, and then stops mid-word, which is worse.' },
+    ]},
+  ]},
+],
+
+/* ------------------------------------------------------------------ act three: the last car */
+lastCar: [
+  { who:'', say:'The siding. Rust, grass through the sleepers, a buffer stop with a rotten beam. And a car standing on it.' },
+  { who:'', say:'No number on it. No owner\'s name, no chalk, no brand, nothing a man could read and write down. Just a wagon, wet, old, with a bracket on the back of it where the tail lamp goes, and the bracket is *empty*.' },
+  { who:'', say:'It has been standing here since the night it went past your box without a lamp on it, which was tonight, which was also a long time ago.' },
+  { who:'', say:'Behind you the ballast says a word.' },
+  { who:'', say:'_yan_', cls:'it' },
+  { do(){ wakeIt('siding'); IT.busy = 60; setTick('yan', false); } },
+  { who:'', say:'It has come up the whole line behind you, counting, and it stands at the end of the siding in the rain with its hands at its sides, and it does not come any closer, because it is at last in front of the thing it has been trying to get to all night and it does not know what comes after.' },
+  { who:'It', say:'"I am not finished."', cls:'it' },
+  { who:'It', say:'"There is one of me that was never said. I have been up and down this road saying all the others. I have said the crossing and the cutting and the bridge and the box and the man in the hut and the dog and the stairs, nineteen of them, and I am still not finished, and I cannot stop until I am."', cls:'it' },
+  { who:'It', say:'"You had it. You had the whole of me in your head for the length of a breath and then you dropped it. Give it back. *Count me.*"', cls:'it' },
+  { do(){ offerFinale(); } },
+],
+};
+
+/* ------------------------------------------------------------------ the last choice */
+function offerFinale(){
+  /* if it has had you enough times there is nothing left to answer with, and the only
+     thing on the list is the thing that was always going to happen */
+  if(S.counted >= 5){
+    offerChoices([{ t:'\u2014', do(){ ending('long'); } }]);
+    return;
+  }
+  const opts = [];
+  if(S.has.lamp) opts.push({ t:'Hang the tail lamp on the bracket.', do(){ ending('gate'); } });
+  opts.push({ t:'Lay the true gate. Count it out, mark by mark.', do(){ finalTally(); } });
+  opts.push({ t:'Lay a false gate. Give it a wrong number and walk away.', do(){ ending('false'); } });
+  opts.push({ t:'Let it count you.', do(){ ending('yan'); } });
+  opts.push({ t:'Refuse. Sit down in the grass and wait for it to be light.', do(){ ending('still'); } });
+  offerChoices(opts);
+}
+function finalTally(){
+  openSlate({
+    n: 11 + rnd(5), gap:430, drift: 0.1 + S.counted * 0.12, label:'listen',
+    hint:'It walks the length of itself for you, one step to a car, and you have one chance to hold all of it.',
+    layHint:'Lay it. All of it. *A* a mark, *B* when it is the whole of it.',
+    onDone(ok){ ending(ok ? 'counted' : 'short'); },
+  });
+}
+
+/* ------------------------------------------------------------------ endings */
+const ENDINGS = {
+  gate: { name:'The Gate Closed', stat:'gate closed', lines:[
+    'You lift the lamp off your knee and you hang it on the bracket, and the spring catch goes over, and the red glass fills up.',
+    'That is all. No number is said. Nothing is counted. A car that had no tail lamp has a tail lamp, and the thing that was not finished is finished, in the only way a thing like that can be finished — not by being counted, but by being *complete*.',
+    'It stands in the rain and looks at its own tail lamp for a long moment, the way a man looks at a door he has been trying to open by pushing.',
+    'And then the siding is empty, and the rain is only rain, and you are standing in wet grass holding nothing at all.',
+    'In the box, later, you write the night up. You cannot put a figure to it. You lay a gate of marks instead, the old way, the way it was done before anybody thought of numbers — one mark for one thing, which is all counting has ever been.',
+    'It is enough. It was always going to be enough.' ] },
+
+  counted: { name:'Counted Out', stat:'counted it out', lines:[
+    'You lay the gate. Every mark of it. It walks the length of itself and you put down one for each and you do not drop a single one, and at the end there is a gate on the slate with nothing left over and nothing missing.',
+    'It looks at the marks. Then it does something you will think about for the rest of your life: it puts its hand up and touches the last one, the one laid across the others, the one that closes the gate.',
+    '"Ah," it says.',
+    'And it goes out, the way a lamp goes out — not moving away, just being less, and then not being.',
+    'You never get the counting back. You are not sure you would take it. But you can lay a gate, and a gate will hold a thing as well as any number ever did.' ] },
+
+  short: { name:'Short by One', stat:'short by one', lines:[
+    'You lay the gate and it is short, and you know it is short as you lay the last mark, the way you know a step is missing in the dark before your foot gets there.',
+    'It waits. It waits a long time, in case you have more.',
+    '"No," it says. Not angry. Tired. "Nearly. You were so nearly."',
+    'Then it goes back down the siding to the end of itself and stands where a car\'s length of nothing is, and it will be there tomorrow night, and the night after, being not quite a whole thing, and so will you.',
+    'You get back to the box before it is light. You keep the job. You count everything now, everything, cups and steps and buttons and the beats of your own heart, and you are never once sure.' ] },
+
+  'false': { name:'A False Gate', stat:'laid a false gate', lines:[
+    'You lay a gate. It is a lie and you know it is a lie as you lay it, and you keep your face still the way you kept it still for nineteen years of nights when nobody was checking.',
+    'It takes the gate. Of course it takes the gate. It cannot count — that is the whole of its trouble, it can only say the words in order — and it has waited so long for somebody to hand it an answer that it does not think to doubt the hand.',
+    'It goes quiet. The siding empties. You walk home in the rain past the crossing and the cutting and the bridge with your heart going like a bird, and you live, you actually *live*, and nothing at all happens to you ever again.',
+    'The section stays open. Nobody will ever know that but you, and the book, and whoever sits in that chair after you.',
+    'Down the line the lamps go out one at a time. But that is somebody else\'s shift now, and you are not on it, and you find that you can bear that.' ] },
+
+  yan: { name:'Yan', stat:'let it count you', lines:[
+    'You put your hands down by your sides. It comes up the siding and stands in front of you, and you have to look up at it, and it is careful with you, which is the part nobody would believe.',
+    'It counts you. Ribs first, one word each, then the long bones, then the small ones in your hands that nobody has a use for. It gets your name in there somewhere. You hear it fit you into the order like a man fitting a coin into a slot.',
+    'And at the end, at last, it is finished — and the relief that comes off it is so enormous, so entirely *decent*, that you are almost glad, and that is the last thought you have that belongs to you.',
+    'There is a manifest nailed inside the last car. It has been blank all night. It is not blank now.' ],
+    manifest:true },
+
+  still: { name:'Still Counting', stat:'waited for the light', lines:[
+    'You sit down in the wet grass with your back against the buffer stop and you do not answer it.',
+    'It asks again. It asks in Quillan\'s voice, and then in your voice, and then in the voice of somebody you have not thought about in thirty years, and you sit there with your arms round your knees and you do not give it one single word.',
+    'The rain stops before the dark does. Then the sky goes the colour of a dirty plate, and a bird starts up in the cutting, and it is simply not there any more — no going, no moment of going, just an end to it.',
+    'You walk back up the line in the light. You keep the job, because what else. You never get the counting back.',
+    'On the edge of the desk, where the varnish has gone, there is a gate of marks that you did not notice yourself making. There is another one the next night. Your hands are keeping a count that you are not invited to.' ] },
+
+  long: { name:'The Long Tally', stat:'lost too many words', lines:[
+    'It asks you for the count.',
+    'You open your mouth and what comes out is not words. It has taken too many. You reach for the one that means *no* and it is not there, and the one that means *help* and that is not there either, and the one that means *you*, and there is a space where that was.',
+    'It waits. It is not cruel. It waits a long time, giving you every chance, while you stand in the rain making a sound.',
+    'Then it counts you, because that is the only thing left that either of you can do.' ],
+    manifest:true },
+};
+
+let endingShown = null;
+function ending(key){
+  const e = ENDINGS[key] || ENDINGS.still;
+  S.ending = key;
+  endingShown = e;
+  sleepIt();
+  S.mode = 'text';
+  const steps = e.lines.map(l => ({ who:'', say:l }));
+  if(e.manifest) steps.push({ do(){ showManifest(); } });
+  else steps.push({ do(){ showEndCard(e); } });
+  runScene(steps, ()=>{});
+  reportEnding(e);
+}
+/* The only place in this game where a number is written down. It has been waiting all night. */
+function showManifest(){
+  closeText();
+  $veil.classList.remove('off');
+  $('veilEye').textContent = 'CAUL LINE · LAST CAR · CONTENTS';
+  $('veilTitle').style.fontSize = 'min(34px,12vw)';
+  $('veilTitle').textContent = '1';
+  $('veilText').innerHTML = fmt('One item. Male. Signalman. Complete.');
+  $('veilKeys').innerHTML = '<span>A</span> again';
+  S.mode = 'over';
+}
+function showEndCard(e){
+  closeText();
+  $veil.classList.remove('off');
+  $('veilEye').textContent = 'THE NIGHT ENDS';
+  $('veilTitle').style.fontSize = '';
+  $('veilTitle').textContent = e.name.toUpperCase();
+  $('veilText').innerHTML = fmt(endSummary());
+  $('veilKeys').innerHTML = '<span>A</span> again';
+  S.mode = 'over';
+}
+function endSummary(){
+  const bits = [];
+  if(S.flags.ledger === 'truth') bits.push('you wrote the truth in the book');
+  if(S.flags.ledger === 'blank') bits.push('you left the page white');
+  if(S.flags.ledger === 'guess') bits.push('you wrote a gate you had not earned');
+  if(S.flags.dog === 'sent') bits.push('you let the dog run');
+  else if(S.flags.dogGone) bits.push('it called the dog by your name');
+  else if(S.flags.dog === 'in') bits.push('the dog stayed with you');
+  if(S.flags.quillan === 'helped') bits.push('you found Quillan his nine');
+  if(S.flags.resisted) bits.push('you walked past your own voice');
+  if(S.counted) bits.push('it had you ' + (S.counted === 1 ? 'once' : S.counted === 2 ? 'twice' : 'more than twice'));
+  else if(S.flags.itAwake) bits.push('it never once got a hand on you');
+  if(!bits.length) return 'A night on the Caul line, and nothing to show for it but the morning.';
+  return bits.join(', ') + '.';
+}
+function reportEnding(e){
+  try{ parent.postMessage({ channel:'hplay', type:'setStat', label:'Tally', value:e.stat }, '*'); }catch(err){}
+}
+/* ---------------------------------------------------------------- walking about */
+const DIRS = { up:{x:0,y:-1}, down:{x:0,y:1}, left:{x:-1,y:0}, right:{x:1,y:0} };
+
+function stepPlayer(dir){
+  const room = ROOMS[S.room];
+  const d = DIRS[dir];
+  S.face = dir;
+  const nx = S.px + d.x, ny = S.py + d.y;
+  const t = tileAt(room, nx, ny);
+  if(t.exit){ useExit(t.exit); return; }
+  if(t.solid){ sfx.knock(); draw(); return; }
+  const was = { x:S.px, y:S.py };
+  S.px = nx; S.py = ny;
+  if(S.dogHere) S.dogAt = was;
+  const loud = (t.noise || 0) >= 2;
+  sfx.step(loud);
+  beat({ loud });
+  dogWatch();
+  draw();
+}
+function useExit(letter){
+  const room = ROOMS[S.room];
+  const link = (room.links || {})[letter];
+  if(!link) return;
+  if(S.room === 'relay' && letter === 'C' && !S.flags.lampDoor){ runScene(SCENES.quillanDoor); return; }
+  enterRoom(link[0], link[1]);
+}
+function enterRoom(id, atLetter){
+  const r = ROOMS[id];
+  if(!r) return;
+  const p = findChar(r, atLetter) || { x:10, y:5 };
+  S.room = id; S.px = p.x; S.py = p.y;
+  if(S.dogHere) S.dogAt = { x:p.x, y:p.y };
+  sfx.door();
+  beat({});
+  draw();
+  const first = !S.seen || !S.seen[id];
+  S.seen = S.seen || {};
+  S.seen[id] = true;
+  if(first && ARRIVE[id]){ ARRIVE[id](); return; }
+  if(r.line && first) flash('*' + r.name + '.* ' + r.line);
+}
+
+/* what happens the first time you set foot in a place */
+const ARRIVE = {
+  platform(){
+    if(S.act !== 'box') return;
+    S.act = 'line';
+    /* a man who ran for the door instead of getting in a cupboard has not had the part
+       where he works out what he is doing, so he gets it out here in the rain */
+    if(!S.flags.firstHide){ S.flags.firstHide = true; runScene(SCENES.afterFirstHide.concat(SCENES.lineOpen)); }
+    else runScene(SCENES.lineOpen);
+  },
+  cutting(){ runScene(SCENES.cuttingArrive); },
+  bridge(){
+    if(S.flags.name === 'dog' && S.dogHere) runScene(SCENES.dogTaken.concat(SCENES.bridge));
+    else if(S.flags.name === 'dog' && S.flags.dog === 'out') runScene(SCENES.dogFetched.concat(SCENES.bridge));
+    else runScene(SCENES.bridge);
+  },
+  tunnel(){
+    S.act = 'deep';
+    if(S.flags.name === 'true') runScene(SCENES.tunnelArrive.concat(SCENES.voiceLure));
+    else runScene(SCENES.tunnelArrive);
+  },
+  siding(){ S.act = 'last'; runScene(SCENES.lastCar); },
+};
+
+/* ---------------------------------------------------------------- pressing A at things */
+const SPOT = {
+  block(){ look('The block shelf. Three bells, and a needle for the down line, and the needle is sitting in a place it does not have.'); },
+  peg(){ look('An empty peg. Your *coat* is downstairs. You do not remember going down.'); },
+  ledger(){ look('Your own hand, tonight\'s line, and you cannot read what you wrote. The letters are letters. They simply will not add up to anything.'); },
+  stove(){ look('Cold through. There is ice on the *kettle*, on the inside, which takes longer than tonight.'); },
+  basket(){ if(S.flags.dog) look('An empty basket, still warm in the middle.'); else runScene(SCENES.dog); },
+  pail(){ if(!S.has.grit){ S.has.grit = true; take('grit'); } else look('The ballast pail, emptier than it was.'); },
+  cupboard(){ look('Padlocked. The key is on Quillan\'s belt, and Quillan went off shift a long time ago, and nobody has ever said where.'); },
+  matches(){ if(!S.has.matches){ S.has.matches = true; take('matches'); } else look('The tin, empty, damp at one corner.'); },
+  sack(){ if(!S.has.oats){ S.has.oats = true; take('oats'); } else look('Feed, spilling. There is no end to oats.'); },
+  can(){ fillLamp(); if(S.act === 'box' && !S.flags.itAwake) trigger_itComes(); },
+  sign(){ look('HALBERD. The paint has gone at the edges, so at night it reads as something shorter and less certain.'); },
+  barrow(){ if(!S.has.pins){ S.has.pins = true; take('pins'); } else look('An empty paper that had pins in it.'); },
+  gatepost(){ runScene(SCENES.gatepost); },
+  jar(){ if(!S.has.buttons){ S.has.buttons = true; take('buttons'); } else look('A jar on its side in the wet grass.'); },
+  marks(){ runScene(SCENES.marks); },
+  door(){ if(S.flags.lampDoor) look('Open. It smells of paraffin in there.'); else runScene(SCENES.quillanDoor); },
+  quillan(){ if(S.flags.quillan) look('He has gone back to the beginning again. He does not look up.'); else runScene(SCENES.quillan); },
+  taillamp(){ if(!S.has.lamp) runScene(SCENES.tailLamp); else look('The hook, empty. You have it. You can feel it against your knee.'); },
+  parapet(){ look('Down there, at the far end of the sleepers, a red light is standing still where nothing is standing.'); },
+  mouth(){ look('Black. Not dark. *Black.* Your light goes in about the length of your arm and then it is simply not yours any more.'); },
+  car(){ runScene(SCENES.lastCar); },
+};
+function look(text){ flash(text); }
+
+function interact(){
+  const room = ROOMS[S.room];
+  const here = tileAt(room, S.px, S.py);
+  if(here.hide){ enterHide(); return; }
+  if(here.exit){ useExit(here.exit); return; }
+  /* the thing you are standing next to, looked at in the direction you are facing */
+  const d = DIRS[S.face];
+  for(const p of [[d.x, d.y], [0,0], [1,0], [-1,0], [0,1], [0,-1]]){
+    const t = tileAt(room, S.px + p[0], S.py + p[1]);
+    if(t.spot && t.kind && SPOT[t.kind]){ SPOT[t.kind](); return; }
+  }
+  flash('Nothing here but the *dark* and the rain on the roof of it.');
+}
+
+/* ---------------------------------------------------------------- the dog */
+function dogWatch(){
+  if(!S.dogHere || !IT.awake) return;
+  const near = IT.room === S.room || (NEIGHBOURS[S.room] || []).indexOf(IT.room) >= 0;
+  if(near && chance(0.22)){
+    sfx.bark();
+    flash('*Sixpence* goes stiff and looks at a wall, and growls at it, low, the way he has never once growled at anything.');
+  }
+}
+
+/* ---------------------------------------------------------------- acts */
+function startAct(name){
+  S.act = name;
+  if(name === 'box'){
+    S.room = 'frame'; S.px = 10; S.py = 5; S.face = 'down';
+    S.mode = 'play';
+    S.seen = { frame:true };
+    draw();
+    runScene(SCENES.boxOpen.concat(SCENES.window));
+  }
+}
+function trigger_itComes(){
+  if(S.flags.itAwake) return;
+  S.flags.itAwake = true;
+  runScene(SCENES.itComes);
+}
+function onHideSurvived(){
+  if(S.act === 'box' && !S.flags.firstHide){
+    S.flags.firstHide = true;
+    runScene(SCENES.afterFirstHide);
+    return true;
+  }
+  return false;
+}
+
+/* ---------------------------------------------------------------- title, pause, restart */
+function showTitle(){
+  S.mode = 'title';
+  closeText(); closeSlate();
+  drone(false);
+  setTick('', true);
+  $veil.classList.remove('off');
+  $('veilEye').textContent = 'THE CAUL LINE';
+  $('veilTitle').style.fontSize = '';
+  $('veilTitle').textContent = 'TALLY';
+  $('veilText').innerHTML = fmt('He kept the count for nineteen years. Tonight he lost it, and something that was counted out has been counted in.');
+  $('veilKeys').innerHTML = '<span>A</span> begin &nbsp;&middot;&nbsp; <span>B</span> sound: ' + (soundOn ? 'on' : 'off');
+  $hud.style.visibility = 'hidden';
+  draw();
+}
+/* The count and the heartbeat run on the wall clock, so stopping has to hold the clock too,
+   or a pause in the middle of a train sends the whole thing past you at once. */
+let pausedAt = 0;
+function showPause(){
+  pausedAt = performance.now();
+  S.mode = 'paused';
+  $veil.classList.remove('off');
+  $('veilEye').textContent = 'HALT';
+  $('veilTitle').style.fontSize = 'min(20px,7vw)';
+  $('veilTitle').textContent = 'STOPPED';
+  $('veilText').innerHTML = fmt(S.flags.itAwake
+    ? 'It has stopped too. It is very patient and this costs it nothing.'
+    : 'The rain keeps on. It always does.');
+  $('veilKeys').innerHTML = '<span>A</span> carry on &nbsp;&middot;&nbsp; <span>B</span> sound &nbsp;&middot;&nbsp; <span>ESC</span> give up';
+}
+function hideVeil(){ $veil.classList.add('off'); $hud.style.visibility = 'visible'; $('veilTitle').style.fontSize = ''; }
+
+function newGame(){
+  forgotten = [];
+  S.mode = 'text'; S.room = 'frame'; S.px = 10; S.py = 5; S.face = 'down';
+  S.lamp = 1; S.pocket = []; S.has = {}; S.flags = {}; S.counted = 0;
+  S.dogHere = false; S.dogAt = null; S.beat = 0; S.act = 'prologue'; S.ending = null;
+  S.seen = {};
+  thrown = null; hideG = null; slateG = null; endingShown = null;
+  IT.room = null; IT.awake = false; IT.gate = 0; IT.busy = 0; IT.heat = 0;
+  hideVeil();
+  updateHud();
+  draw();
+  runScene(SCENES.prologue);
+}
+
+/* ---------------------------------------------------------------- input */
+function onPad(k){
+  audio();
+  if(S.mode === 'title'){
+    if(k === 'a'){ hideVeil(); newGame(); }
+    else if(k === 'b'){ setSound(!soundOn); showTitle(); }
+    return;                                   // ESC on the title is left for the player to answer
+  }
+  if(k === 'esc') handled();                  // only ESC is ours to answer for
+  if(S.mode === 'over'){
+    if(k === 'a' || k === 'b' || k === 'esc') showTitle();
+    return;
+  }
+  if(S.mode === 'paused'){
+    if(k === 'a'){
+      const held = performance.now() - pausedAt;
+      if(slateG) slateG.next += held;
+      if(hideG){ hideG.next += held; hideG.used = false; }
+      hideVeil();
+      S.mode = choiceList ? 'text' : (hideG ? 'hide' : slateG ? 'slate' : 'play');
+      draw();
+    }
+    else if(k === 'b'){ setSound(!soundOn); showPause(); }
+    else if(k === 'esc') showTitle();
+    return;
+  }
+  if(k === 'esc'){ showPause(); return; }
+  if(S.mode === 'text'){
+    if(choiceList){
+      if(k === 'up' || k === 'left'){ choiceSel = (choiceSel + choiceList.length - 1) % choiceList.length; sfx.knock(); renderChoices(); }
+      else if(k === 'down' || k === 'right'){ choiceSel = (choiceSel + 1) % choiceList.length; sfx.knock(); renderChoices(); }
+      else if(k === 'a') takeChoice();
+      return;
+    }
+    if(k === 'a'){ if(typing) finishTyping(); else stepScene(); }
+    return;
+  }
+  if(S.mode === 'slate'){
+    if(k === 'a') slatePress();
+    else if(k === 'b') slateDone();
+    return;
+  }
+  if(S.mode === 'hide'){
+    if(hideG){ if(k === 'a') breathPress(); return; }
+    if(k === 'a' || k === 'b') leaveHide();
+    return;
+  }
+  if(S.mode === 'play'){
+    if(flashOn && k === 'a'){ flashOn = false; closeText(); }
+    if(DIRS[k]){ stepPlayer(k); return; }
+    if(k === 'a'){ interact(); return; }
+    if(k === 'b'){ scatterHandful(); return; }
+  }
+}
+function handled(){ try{ parent.postMessage({ channel:'hplay', type:'handled' }, '*'); }catch(e){} }
+
+window.addEventListener('message', (e)=>{
+  const m = e.data;
+  if(!m || m.channel !== 'hplay') return;
+  if(m.type === 'pad') onPad(m.key);
+  else if(m.type === 'select') onPad('a');
+  else if(m.type === 'library' && Array.isArray(m.data)) takeLibrary(m.data);
+});
+addEventListener('keydown', (e)=>{
+  const k = { ArrowUp:'up', ArrowDown:'down', ArrowLeft:'left', ArrowRight:'right',
+              w:'up', s:'down', a:'left', d:'right', Enter:'a', ' ':'a', z:'a', x:'b', Escape:'esc' }[e.key];
+  if(k){ e.preventDefault(); onPad(k); }
+});
+
+/* Your own records, in the freight. It is the one thing an app may read without asking,
+   and there is nothing lonelier at three in the morning than your own albums going south
+   on a train you cannot count. */
+let cargo = [];
+function takeLibrary(list){
+  cargo = list.map(s => s && (s.album || s.artist)).filter(Boolean);
+  cargo = cargo.filter((v, i) => cargo.indexOf(v) === i).slice(0, 40);
+}
+function cargoLine(){
+  if(!cargo.length)
+    return 'Spoil out of the quarry. Sleepers. A car of somebody\'s furniture going somewhere it is not wanted.';
+  return 'Spoil out of the quarry. Sleepers. And a car with somebody\'s records in it — you can read the crate from here, *' +
+         pick(cargo) + '* — going south in the rain at three in the morning, which is a thing to think about.';
+}
+
+/* ---------------------------------------------------------------- the loop */
+function frame(now){
+  flick = 0.94 + Math.sin(now / 220) * 0.03 + Math.random() * 0.035;
+  typeTick(now);
+  flashTick(now);
+  if(S.mode === 'slate') slateTick(now);
+  if(hideG && S.mode === 'hide') breathTick(now);   // a stopped game holds its breath too
+  if(S.mode !== 'title' || true) draw();
+  requestAnimationFrame(frame);
+}
+
+try{ parent.postMessage({ channel:'hplay', type:'getLibrary' }, '*'); }catch(e){}
+fit();
+updateHud();
+showTitle();
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
