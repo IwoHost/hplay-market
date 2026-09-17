@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Cable</title>
+<style>
+  :root{
+    --bg:#0d1017; --panel:#131824; --grid:#1a2030; --text:#e8ebf0; --sub:#8a93a6;
+    --snake:#4ac0ff; --snake2:#2b8fd6; --head:#9adcff; --record:#e0a13a; --label:#f2e3c4; --dead:#e0433a;
+  }
+  @media (prefers-color-scheme: light){
+    :root{ --bg:#eef0f5; --panel:#f7f8fb; --grid:#d3d9e4; --text:#141a24; --sub:#5c6577;
+           --snake:#1b6fd0; --snake2:#0f4fa8; --head:#4a97e8; --record:#b5761a; --label:#5a4726; --dead:#c62015; }
+  }
+  *{ margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; user-select:none; }
+  html,body{ height:100%; overflow:hidden; touch-action:none; }
+  body{
+    font-family:-apple-system,"Helvetica Neue",Helvetica,Arial,sans-serif;
+    background:var(--bg); color:var(--text);
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    gap:5px; padding:6px;
+  }
+  .hud{ display:flex; gap:14px; font-size:10.5px; font-weight:700; color:var(--sub);
+        width:100%; max-width:440px; justify-content:center; }
+  .hud b{ color:var(--text); font-variant-numeric:tabular-nums; }
+  .stage{ position:relative; flex:0 1 auto; line-height:0; }
+  canvas{ display:block; border-radius:5px; background:var(--panel); }
+  .note{
+    height:13px; font-size:10px; font-weight:600; color:var(--record);
+    max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; text-align:center;
+  }
+  .veil{
+    position:absolute; inset:0; border-radius:5px;
+    background:rgba(8,11,17,.82); color:#e8ebf0;
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:5px;
+    text-align:center; padding:8px; line-height:1.35;
+  }
+  @media (prefers-color-scheme: light){ .veil{ background:rgba(240,242,247,.9); color:#141a24; } }
+  .veil.off{ display:none; }
+  .veil .big{ font-size:min(19px, 7vw); font-weight:800; letter-spacing:-.01em; }
+  .veil .small{ font-size:min(10.5px, 3.6vw); color:var(--sub); max-width:250px; }
+  .veil .keys{ font-size:min(10px, 3.3vw); color:var(--sub); margin-top:2px; }
+  .veil .keys span{ color:var(--text); font-weight:700; }
+</style>
+</head>
+<body>
+  <div class="hud"><span>Score <b id="score">0</b></span><span>Best <b id="best">0</b></span><span>Length <b id="len">3</b></span></div>
+  <div class="stage">
+    <canvas id="cv"></canvas>
+    <div class="veil" id="veil">
+      <div class="big" id="vtitle">Cable</div>
+      <div class="small" id="vtext">Collect the records. Don't bite your own cable.</div>
+      <div class="keys"><span>D-pad</span> turns &nbsp; <span>A</span> start &nbsp; <span>B</span> pause &nbsp; <span>ESC</span> back</div>
+    </div>
+  </div>
+  <div class="note" id="note"></div>
+
+<script>
+"use strict";
+/* Cable: a snake for the Hplay d-pad. The records you pick up are named after tracks in
+   your own library when there is one, which is the only thing an app can read without
+   asking permission. */
+
+const COLS = 21, ROWS = 13;
+const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
+const $score = document.getElementById('score'), $best = document.getElementById('best');
+const $len = document.getElementById('len'), $note = document.getElementById('note');
+const $veil = document.getElementById('veil'), $vtitle = document.getElementById('vtitle'), $vtext = document.getElementById('vtext');
+
+let cell = 14, snake, dir, queued, food, score = 0, best = 0, alive = false, running = false, tickId = 0;
+let titles = [];          // track names from the library, if the player hands any over
+
+/* ---- fitting the board to whatever space the screen gives us ---- */
+function fit(){
+  const pad = 14;
+  const w = Math.max(160, window.innerWidth - pad);
+  const h = Math.max(110, window.innerHeight - 62);
+  cell = Math.max(6, Math.floor(Math.min(w / COLS, h / ROWS)));
+  const dpr = Math.min(3, window.devicePixelRatio || 1);
+  cv.style.width = (COLS * cell) + 'px';
+  cv.style.height = (ROWS * cell) + 'px';
+  cv.width = COLS * cell * dpr;
+  cv.height = ROWS * cell * dpr;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  draw();
+}
+addEventListener('resize', fit);
+/* An iframe is not always its final size when its script first runs, and it never fires a
+   resize event of its own when the page around it settles, so the board has to watch. */
+try{ new ResizeObserver(fit).observe(document.documentElement); }catch(e){}
+addEventListener('load', fit);
+
+/* ---- sound, the same way the other apps do it ---- */
+let ac = null;
+function ensureAudio(){ if(!ac){ try{ ac = new (window.AudioContext||window.webkitAudioContext)(); }catch(e){} } }
+function blip(f, dur, type, vol){
+  if(!ac) return;
+  const t = ac.currentTime, o = ac.createOscillator(), g = ac.createGain();
+  o.type = type || 'square'; o.frequency.value = f;
+  g.gain.setValueAtTime(vol || 0.05, t);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + (dur || 0.06));
+  o.connect(g).connect(ac.destination); o.start(t); o.stop(t + (dur || 0.06) + 0.02);
+}
+function fanfare(){
+  if(!ac) return;
+  [523, 659, 784].forEach((f,i)=>setTimeout(()=>blip(f, .12, 'sine', .09), i*70));
+}
+function crash(){
+  if(!ac) return;
+  const t = ac.currentTime, o = ac.createOscillator(), g = ac.createGain();
+  o.type = 'sawtooth'; o.frequency.setValueAtTime(220, t);
+  o.frequency.exponentialRampToValueAtTime(55, t + .4);
+  g.gain.setValueAtTime(.12, t); g.gain.exponentialRampToValueAtTime(.0001, t + .45);
+  o.connect(g).connect(ac.destination); o.start(t); o.stop(t + .47);
+}
+
+/* ---- the game ---- */
+const key = (x,y) => y * COLS + x;
+function placeFood(){
+  const taken = new Set(snake.map(s=>key(s.x,s.y)));
+  const free = [];
+  for(let y=0;y<ROWS;y++) for(let x=0;x<COLS;x++) if(!taken.has(key(x,y))) free.push({x,y});
+  if(!free.length) return null;
+  const spot = free[Math.floor(Math.random()*free.length)];
+  spot.name = titles.length ? titles[Math.floor(Math.random()*titles.length)] : '';
+  return spot;
+}
+function reset(){
+  const cy = Math.floor(ROWS/2);
+  snake = [{x:5,y:cy},{x:4,y:cy},{x:3,y:cy}];
+  dir = {x:1,y:0}; queued = [];
+  score = 0; alive = true; running = true;
+  food = placeFood();
+  $note.textContent = '';
+  syncHud();
+}
+function syncHud(){
+  $score.textContent = score;
+  $best.textContent = best;
+  $len.textContent = snake ? snake.length : 3;
+}
+function speed(){
+  // starts gentle and tightens as the cable grows, with a floor so it stays playable
+  return Math.max(70, 165 - (snake.length - 3) * 4.5);
+}
+function schedule(){ clearTimeout(tickId); if(running && alive) tickId = setTimeout(tick, speed()); }
+
+function turn(d){
+  // queue the turn rather than applying it: two quick presses inside one tick both count
+  const last = queued.length ? queued[queued.length-1] : dir;
+  if(d.x === -last.x && d.y === -last.y) return;      // no folding back on yourself
+  if(d.x === last.x && d.y === last.y) return;
+  if(queued.length < 2) queued.push(d);
+}
+function tick(){
+  if(queued.length) dir = queued.shift();
+  const head = { x: snake[0].x + dir.x, y: snake[0].y + dir.y };
+  const hitWall = head.x < 0 || head.y < 0 || head.x >= COLS || head.y >= ROWS;
+  // the tail tip moves out of the way this tick, so running into it is not a crash
+  const hitSelf = snake.slice(0, -1).some(s => s.x === head.x && s.y === head.y);
+  if(hitWall || hitSelf){ die(); return; }
+
+  snake.unshift(head);
+  if(food && head.x === food.x && head.y === food.y){
+    score += 10;
+    if(food.name){ $note.textContent = food.name; }
+    blip(880, .07, 'square', .06);
+    food = placeFood();
+    if(!food){ win(); return; }
+  } else {
+    snake.pop();
+  }
+  syncHud();
+  draw();
+  schedule();
+}
+function die(){
+  alive = false; running = false;
+  clearTimeout(tickId);
+  crash();
+  if(score > best){ best = score; reportBest(); }
+  syncHud(); draw(true);
+  show('Crashed', 'Score ' + score + (score >= best && score > 0 ? '  ·  new best' : '') + '. A to play again.');
+}
+function win(){
+  alive = false; running = false;
+  clearTimeout(tickId); fanfare();
+  if(score > best){ best = score; reportBest(); }
+  syncHud(); draw();
+  show('Board cleared', 'Nothing left to collect. Score ' + score + '.');
+}
+
+/* one line in the player's Statistics, replaced each time it improves */
+function reportBest(){
+  try{ parent.postMessage({channel:'hplay', type:'setStat', label:'Cable best', value:String(best)}, '*'); }catch(e){}
+}
+
+function show(title, text){
+  $vtitle.textContent = title; $vtext.textContent = text;
+  $veil.classList.remove('off');
+}
+function hide(){ $veil.classList.add('off'); }
+
+/* ---- drawing ---- */
+function rr(x, y, w, h, r){
+  ctx.beginPath();
+  ctx.moveTo(x+r, y);
+  ctx.arcTo(x+w, y, x+w, y+h, r);
+  ctx.arcTo(x+w, y+h, x, y+h, r);
+  ctx.arcTo(x, y+h, x, y, r);
+  ctx.arcTo(x, y, x+w, y, r);
+  ctx.closePath();
+}
+function css(v){ return getComputedStyle(document.documentElement).getPropertyValue(v).trim(); }
+function draw(dead){
+  const W = COLS*cell, H = ROWS*cell;
+  ctx.clearRect(0,0,W,H);
+  ctx.fillStyle = css('--panel'); ctx.fillRect(0,0,W,H);
+
+  ctx.strokeStyle = css('--grid'); ctx.lineWidth = 1;
+  for(let x=1;x<COLS;x++){ ctx.beginPath(); ctx.moveTo(x*cell+.5,0); ctx.lineTo(x*cell+.5,H); ctx.stroke(); }
+  for(let y=1;y<ROWS;y++){ ctx.beginPath(); ctx.moveTo(0,y*cell+.5); ctx.lineTo(W,y*cell+.5); ctx.stroke(); }
+
+  if(food){
+    const cx = food.x*cell + cell/2, cy = food.y*cell + cell/2, r = cell*0.36;
+    ctx.fillStyle = '#15171d';
+    ctx.beginPath(); ctx.arc(cx, cy, r, 0, 6.2832); ctx.fill();
+    ctx.strokeStyle = css('--record'); ctx.lineWidth = Math.max(1, cell*0.07);
+    ctx.beginPath(); ctx.arc(cx, cy, r*0.72, 0, 6.2832); ctx.stroke();
+    ctx.fillStyle = css('--record');
+    ctx.beginPath(); ctx.arc(cx, cy, Math.max(1, r*0.22), 0, 6.2832); ctx.fill();
+  }
+
+  if(!snake) return;
+  for(let i = snake.length - 1; i >= 0; i--){
+    const s = snake[i], head = i === 0;
+    const inset = head ? cell*0.10 : cell*0.16;
+    ctx.fillStyle = dead ? css('--dead') : (head ? css('--head') : (i % 2 ? css('--snake2') : css('--snake')));
+    rr(s.x*cell + inset, s.y*cell + inset, cell - inset*2, cell - inset*2, Math.max(1.5, cell*0.26));
+    ctx.fill();
+  }
+}
+
+/* ---- input ----
+   ESC steps back to the title card and tells the player it was handled, so the player does
+   not offer to leave. On the title card it is deliberately left unanswered, which is what
+   makes the player ask instead. */
+const DIRS = { up:{x:0,y:-1}, down:{x:0,y:1}, left:{x:-1,y:0}, right:{x:1,y:0} };
+function onPad(k){
+  ensureAudio();
+  if(DIRS[k]){
+    if(running && alive) turn(DIRS[k]);
+    return;
+  }
+  if(k === 'a'){
+    if(!alive){ reset(); hide(); draw(); schedule(); }
+    else { running = !running; if(running){ hide(); schedule(); } else { clearTimeout(tickId); show('Paused', 'A to carry on.'); } }
+    return;
+  }
+  if(k === 'b'){
+    if(alive && running){ running = false; clearTimeout(tickId); show('Paused', 'A to carry on.'); }
+    else if(alive && !running){ running = true; hide(); schedule(); }
+    return;
+  }
+  if(k === 'esc'){
+    const onTitle = !alive && !$veil.classList.contains('off') && $vtitle.textContent === 'Cable';
+    if(onTitle) return;                 // unanswered: let the player ask about leaving
+    alive = false; running = false; clearTimeout(tickId);
+    show('Cable', 'Collect the records. Don’t bite your own cable.');
+    draw();
+    try{ parent.postMessage({channel:'hplay', type:'handled'}, '*'); }catch(e){}
+  }
+}
+
+window.addEventListener('message', (e)=>{
+  const m = e.data;
+  if(!m || m.channel !== 'hplay') return;
+  if(m.type === 'pad') onPad(m.key);
+  else if(m.type === 'select') onPad('a');
+  else if(m.type === 'library' && Array.isArray(m.data)){
+    titles = m.data.map(s => s && s.title).filter(Boolean).slice(0, 400);
+    if(food && !food.name && titles.length) food.name = titles[Math.floor(Math.random()*titles.length)];
+  }
+});
+
+// also playable on its own, outside the player
+addEventListener('keydown', (e)=>{
+  const k = { ArrowUp:'up', ArrowDown:'down', ArrowLeft:'left', ArrowRight:'right',
+              w:'up', s:'down', a:'left', d:'right', Enter:'a', ' ':'a', z:'a', x:'b', Escape:'esc' }[e.key];
+  if(k){ e.preventDefault(); onPad(k); }
+});
+
+try{ parent.postMessage({channel:'hplay', type:'getLibrary'}, '*'); }catch(e){}
+reset(); alive = false; running = false; clearTimeout(tickId);
+fit();
+show('Cable', 'Collect the records. Don’t bite your own cable.');
+</script>
+</body>
+</html>

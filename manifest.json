@@ -17,7 +17,8 @@
     { "id": "pulse", "name": "Pulse", "desc": "Wheel sets the speed, center hits the beat", "file": "apps/pulse.html" },
     { "id": "blackout", "name": "Blackout", "desc": "Toggle puzzle — turn every light off", "file": "apps/blackout.html" },
     { "id": "minefield", "name": "Minefield", "desc": "Wheel moves, center reveals — mind the mines", "file": "apps/minefield.html" },
-    { "id": "youtube", "name": "YouTube", "desc": "Save links, wheel seeks, center plays or pauses", "file": "apps/youtube.html" }
+    { "id": "youtube", "name": "YouTube", "desc": "Save links, wheel seeks, center plays or pauses", "file": "apps/youtube.html" },
+    { "id": "cable", "name": "Cable", "desc": "Collect the records, don't bite your own cable", "file": "apps/cable.html", "controls": "dpad" }
   ],
   "themes": [
     { "id": "gold", "name": "Gold",
