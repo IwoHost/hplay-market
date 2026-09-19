@@ -79,6 +79,32 @@ window.addEventListener('message', (e) => {
 
 See `apps/library-stats.html` for a working example.
 
+## Saving where the user got to
+
+An app gets a scribbling pad of its own — enough for a game to still be there when the user comes
+back to it. It is filed under the app's id, so an app can only ever see what it wrote itself,
+nothing of the user's is in it, and it needs no permission. It is thrown away when the app is
+uninstalled.
+
+```js
+parent.postMessage({channel:'hplay', type:'saveState',  data:{room:'relay', lamps:3}}, '*');
+parent.postMessage({channel:'hplay', type:'loadState'}, '*');
+parent.postMessage({channel:'hplay', type:'clearState'}, '*');
+
+window.addEventListener('message', (e) => {
+  if (!e.data || e.data.channel !== 'hplay') return;
+  if (e.data.type === 'state')      { /* e.data.data — what you saved, or null if nothing */ }
+  if (e.data.type === 'stateSaved') { /* e.data.ok; e.data.reason is 'too big' or 'no room' */ }
+});
+```
+
+- `data` must be plain JSON-able values, and must come to **64 KB or less** once stringified.
+  A bigger save is refused outright with `ok:false, reason:'too big'`.
+- Ask for `loadState` once on startup. Save at moments that matter — the end of a level, a choice
+  made — not on a timer.
+- Requires Hplay v38.8 or newer. On anything older no reply ever comes back, so treat a reply that
+  hasn't arrived within a second as "no save" and start fresh.
+
 ## Click wheel input
 
 Hplay is a click-wheel device — users navigate everything else in the app with the wheel and center

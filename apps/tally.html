@@ -1487,6 +1487,7 @@ function flashTick(now){
 function resumePlay(){
   closeText();
   S.mode = 'play';
+  saveRun();            // the ground has stopped moving: this is a place worth writing down
   draw();
 }
 function updateHud(){
@@ -1851,6 +1852,7 @@ function ending(key){
   const e = ENDINGS[key] || ENDINGS.still;
   S.ending = key;
   endingShown = e;
+  dropRun();          // a night that has ended is not one to be carried on with
   sleepIt();
   S.mode = 'text';
   const steps = e.lines.map(l => ({ who:'', say:l }));
@@ -1938,6 +1940,7 @@ function enterRoom(id, atLetter){
   S.seen = S.seen || {};
   S.seen[id] = true;
   if(first && ARRIVE[id]){ ARRIVE[id](); return; }
+  saveRun();                          // through a door is the one place a night is safe to write
   if(r.line && first) flash('*' + r.name + '.* ' + r.line);
 }
 
@@ -2050,8 +2053,14 @@ function showTitle(){
   $('veilEye').textContent = 'THE CAUL LINE';
   $('veilTitle').style.fontSize = '';
   $('veilTitle').textContent = 'TALLY';
-  $('veilText').innerHTML = fmt('He kept the count for nineteen years. Tonight he lost it, and something that was counted out has been counted in.');
-  $('veilKeys').innerHTML = '<span>A</span> begin &nbsp;&middot;&nbsp; <span>B</span> sound: ' + (soundOn ? 'on' : 'off');
+  $('veilText').innerHTML = fmt(savedRun
+    ? 'He kept the count for nineteen years. You left him somewhere in the middle of the night he lost it, and the night has been waiting.'
+    : 'He kept the count for nineteen years. Tonight he lost it, and something that was counted out has been counted in.');
+  /* sound lives on ESC’s menu once there is a run to come back to — the choice that matters
+     on this screen is whether tonight is the same night */
+  $('veilKeys').innerHTML = savedRun
+    ? '<span>A</span> carry on &nbsp;&middot;&nbsp; <span>B</span> start again'
+    : '<span>A</span> begin &nbsp;&middot;&nbsp; <span>B</span> sound: ' + (soundOn ? 'on' : 'off');
   $hud.style.visibility = 'hidden';
   draw();
 }
@@ -2090,8 +2099,11 @@ function newGame(){
 function onPad(k){
   audio();
   if(S.mode === 'title'){
-    if(k === 'a'){ hideVeil(); newGame(); }
-    else if(k === 'b'){ setSound(!soundOn); showTitle(); }
+    if(k === 'a'){ if(savedRun){ resumeRun(savedRun); } else { hideVeil(); newGame(); } }
+    else if(k === 'b'){
+      if(savedRun){ dropRun(); hideVeil(); newGame(); }   // starting again throws the old night away
+      else { setSound(!soundOn); showTitle(); }
+    }
     return;                                   // ESC on the title is left for the player to answer
   }
   if(k === 'esc') handled();                  // only ESC is ours to answer for
@@ -2142,12 +2154,72 @@ function onPad(k){
 }
 function handled(){ try{ parent.postMessage({ channel:'hplay', type:'handled' }, '*'); }catch(e){} }
 
+/* ---------------------------------------------------------------- keeping your place */
+/* A night this long is no good to anybody if putting the player down throws it away. The run
+   is written at the two moments where losing it would actually hurt — walking into a room,
+   and a scene handing control back — and nowhere else. Writing on a timer would catch him
+   mid-sentence, and you would come back standing inside somebody else's line. */
+let savedRun = null;
+function runSnapshot(){
+  return {
+    v: 1,
+    room:S.room, px:S.px, py:S.py, face:S.face,
+    lamp:S.lamp, pocket:S.pocket.slice(), has:Object.assign({}, S.has),
+    flags:Object.assign({}, S.flags), counted:S.counted,
+    dogHere:S.dogHere, dogAt:S.dogAt, beat:S.beat, act:S.act,
+    seen:Object.assign({}, S.seen || {}),
+    it:{ room:IT.room, x:IT.x, y:IT.y, gate:IT.gate, pace:IT.pace,
+         awake:IT.awake, seen:IT.seen, heat:IT.heat || 0 },
+    forgotten: forgotten.slice(),
+    sound: soundOn,
+  };
+}
+function saveRun(){
+  if(S.ending || S.mode === 'over') return;
+  savedRun = runSnapshot();
+  try{ parent.postMessage({ channel:'hplay', type:'saveState', data: savedRun }, '*'); }catch(e){}
+}
+function dropRun(){
+  savedRun = null;
+  try{ parent.postMessage({ channel:'hplay', type:'clearState' }, '*'); }catch(e){}
+}
+function resumeRun(r){
+  forgotten = (r.forgotten || []).slice();
+  thrown = null; hideG = null; slateG = null; endingShown = null;
+  S.room = r.room; S.px = r.px; S.py = r.py; S.face = r.face || 'down';
+  S.lamp = r.lamp; S.pocket = (r.pocket || []).slice(); S.has = r.has || {};
+  S.flags = r.flags || {}; S.counted = r.counted || 0;
+  S.dogHere = !!r.dogHere; S.dogAt = r.dogAt || null;
+  S.beat = r.beat || 0; S.act = r.act || 'line'; S.ending = null;
+  S.seen = r.seen || {};
+  const it = r.it || {};
+  IT.room = it.room || null; IT.x = it.x || 0; IT.y = it.y || 0;
+  IT.gate = it.gate || 0; IT.pace = it.pace || 5; IT.busy = 0;
+  IT.awake = !!it.awake; IT.seen = !!it.seen; IT.heat = it.heat || 0;
+  if(typeof r.sound === 'boolean') setSound(r.sound);
+  hideVeil();
+  S.mode = 'play';
+  if(IT.awake) drone(true, 38); else { drone(false); setTick('', true); }
+  updateHud();
+  draw();
+  /* taken from the room itself rather than a list kept alongside one, so it cannot go stale
+     the next time a room is added or renamed */
+  const here = ROOMS[S.room];
+  flash(here ? 'You come back to *' + here.name + '*. The rain never stopped.'
+             : 'You come back to where you left off. The rain never stopped.');
+}
+
 window.addEventListener('message', (e)=>{
   const m = e.data;
   if(!m || m.channel !== 'hplay') return;
   if(m.type === 'pad') onPad(m.key);
   else if(m.type === 'select') onPad('a');
   else if(m.type === 'library' && Array.isArray(m.data)) takeLibrary(m.data);
+  else if(m.type === 'state'){
+    /* only offered on the title — coming back to a save while a run is going would be a
+       way to lose the run you are actually in */
+    if(m.data && m.data.v === 1 && S.mode === 'title'){ savedRun = m.data; showTitle(); }
+  }
 });
 addEventListener('keydown', (e)=>{
   const k = { ArrowUp:'up', ArrowDown:'down', ArrowLeft:'left', ArrowRight:'right',
@@ -2182,6 +2254,9 @@ function frame(now){
 }
 
 try{ parent.postMessage({ channel:'hplay', type:'getLibrary' }, '*'); }catch(e){}
+/* An older player never answers this, and a browser has nobody to answer it. Either way no
+   reply arrives, savedRun stays null, and the title reads the way it always did. */
+try{ parent.postMessage({ channel:'hplay', type:'loadState' }, '*'); }catch(e){}
 fit();
 updateHud();
 showTitle();
