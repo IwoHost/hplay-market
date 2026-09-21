@@ -85,7 +85,7 @@ function reset(){
   score = 0; over = false; running = false; tickMs = 130;
   updateHud();
   placeFood();
-  showMsg('Coil', 'Turn the wheel to steer, press center to start');
+  showMsg('Coil', 'Turn the pad to steer, A to start');
 }
 function updateHud(){ $score.textContent = 'Length: '+snake.length; $best.textContent = 'Best: '+best; }
 function showMsg(big, small){ $msg.innerHTML = '<div class="big">'+big+'</div><div class="small">'+(small||'')+'</div>'; }
@@ -94,11 +94,35 @@ function hideMsg(){ $msg.innerHTML=''; }
 function turn(dir){
   dirIdx = ((dirIdx + (dir>0?1:3)) % 4 + 4) % 4;
 }
+/* ---- d-pad ----
+   The wheel could only ever say "turn left" or "turn right" from wherever you happened to be
+   pointing. A pad says where to go, which is how this game has always wanted to be played.
+   DIRS is right, down, left, up in that order. Doubling back on yourself is refused, because
+   at this speed it reads as a misfire rather than a decision. */
+const PAD_DIR = { right:0, down:1, left:2, up:3 };
+function onPad(k){
+  ensureAudio();
+  if(k in PAD_DIR){
+    const want = PAD_DIR[k];
+    if(!running || over) return;
+    if((want + 2) % 4 === dirIdx) return;      // no instant reversal
+    dirIdx = want;
+    return;
+  }
+  if(k === 'a' || k === 'b'){ startOrRestart(); return; }
+  // esc stays unanswered, so the player offers to leave
+}
 function startOrRestart(){
   ensureAudio();
   if(over){ reset(); running = true; hideMsg(); return; }
   if(!running){ running = true; hideMsg(); }
 }
+
+addEventListener('keydown', e=>{
+  const k = {ArrowUp:'up',ArrowDown:'down',ArrowLeft:'left',ArrowRight:'right',
+             Enter:'a',' ':'a',z:'a',x:'b'}[e.key];
+  if(k){ e.preventDefault(); onPad(k, e.repeat); }
+});
 
 let acc = 0, lastTs = null;
 function tick(){
@@ -149,6 +173,7 @@ function draw(){
 window.addEventListener('message', (e)=>{
   if(!e.data || e.data.channel!=='hplay') return;
   if(e.data.type==='wheel'){ ensureAudio(); turn(e.data.dir); }
+  if(e.data.type==='pad') onPad(e.data.key);
   if(e.data.type==='select') startOrRestart();
 });
 

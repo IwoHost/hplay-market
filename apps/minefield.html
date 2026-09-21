@@ -27,6 +27,7 @@
   .cell.revealed{ background:var(--revealed); }
   .cell.mine{ background:var(--mine); }
   .cell.cur{ outline-color:var(--cursor); }
+  .cell.flag{ color:var(--mine); }
   .cell.n1{ color:var(--n1); } .cell.n2{ color:var(--n2); } .cell.n3{ color:var(--n3); } .cell.n4{ color:var(--n4); }
   .cell.n5{ color:var(--n5); } .cell.n6{ color:var(--n6); } .cell.n7{ color:var(--n7); } .cell.n8{ color:var(--n8); }
   .status{ font-size:10.5px; font-weight:700; color:var(--sub); text-align:center; min-height:14px; }
@@ -36,12 +37,13 @@
 <body>
   <div class="hud"><span id="minecount">Mines: 6</span><span id="wins">Cleared: 0</span></div>
   <div class="grid" id="grid"></div>
-  <div class="status" id="status">Wheel moves, center reveals</div>
+  <div class="status" id="status">Pad moves, A reveals, B flags</div>
   <div class="hint">Your first reveal is always safe</div>
 
 <script>
 "use strict";
 const COLS = 8, ROWS = 6, MINES = 7;
+const HINT = 'Pad moves, A reveals, B flags';
 const $grid = document.getElementById('grid');
 const $status = document.getElementById('status');
 const $wins = document.getElementById('wins');
@@ -82,7 +84,7 @@ function neighbors(i){
   return out;
 }
 function layout(excludeIdx){
-  cells = new Array(COLS*ROWS).fill(null).map(()=>({mine:false, revealed:false, count:0}));
+  cells = new Array(COLS*ROWS).fill(null).map(()=>({mine:false, revealed:false, flagged:false, count:0}));
   let placed = 0;
   while(placed < MINES){
     const i = Math.floor(Math.random()*COLS*ROWS);
@@ -102,6 +104,8 @@ function paint(){
       el.classList.add('revealed');
       if(cell.mine){ el.classList.add('mine'); el.textContent = '✖'; }
       else { el.textContent = cell.count>0 ? String(cell.count) : ''; if(cell.count>0) el.classList.add('n'+cell.count); }
+    } else if(cell.flagged){
+      el.classList.add('flag'); el.textContent = '⚑';
     } else {
       el.textContent = '';
     }
@@ -121,12 +125,26 @@ function floodReveal(i){
     if(cell.count===0) neighbors(cur).forEach(n=>{ if(!cells[n].revealed) stack.push(n); });
   }
 }
+function flag(){
+  if(over) return;
+  const cell = cells[cursor];
+  if(cell.revealed) return;
+  cell.flagged = !cell.flagged;
+  if(navigator.vibrate) navigator.vibrate(5);
+  paintCount();
+  paint();
+}
+function paintCount(){
+  const flags = cells.filter(c=>c.flagged).length;
+  document.getElementById('minecount').textContent = 'Mines: ' + (MINES - flags);
+}
 function remainingSafe(){ return cells.filter(c=>!c.mine && !c.revealed).length; }
 
 function newGame(){
   layout(-1);
   cursor = 0; firstMove = true; over = false;
-  $status.textContent = 'Wheel moves, center reveals';
+  $status.textContent = HINT;
+  paintCount();
   paint();
 }
 function move(dir, mult){
@@ -142,7 +160,7 @@ function reveal(){
     if(cells[cursor].mine) layout(cursor);   // guarantee a safe first click
   }
   const cell = cells[cursor];
-  if(cell.revealed) return;
+  if(cell.revealed || cell.flagged) return;
   if(cell.mine){
     cell.revealed = true;
     over = true;
@@ -170,7 +188,32 @@ function reveal(){
 window.addEventListener('message', (e)=>{
   if(!e.data || e.data.channel!=='hplay') return;
   if(e.data.type==='wheel') move(e.data.dir, e.data.mult);
+  if(e.data.type==='pad') onPad(e.data.key);
   if(e.data.type==='select') reveal();
+});
+
+/* ---- d-pad ----
+   Eight across and six down, walked in a line by the wheel, which meant counting to get
+   anywhere. Now it moves like the grid it is. Flagging arrived with the pad too: there was
+   nowhere to put it before, and minesweeping without a flag is guesswork. */
+function onPad(k){
+  if(k==='a'){ reveal(); return; }
+  if(k==='b'){ flag(); return; }
+  if(k==='esc') return;              // unanswered on purpose: the player asks about leaving
+  if(over) return;
+  let x = cursor % COLS, y = (cursor / COLS) | 0;
+  if(k==='left')  x = (x + COLS - 1) % COLS;
+  else if(k==='right') x = (x + 1) % COLS;
+  else if(k==='up')    y = (y + ROWS - 1) % ROWS;
+  else if(k==='down')  y = (y + 1) % ROWS;
+  else return;
+  cursor = y*COLS + x;
+  paint();
+}
+addEventListener('keydown', e=>{
+  const k = {ArrowUp:'up',ArrowDown:'down',ArrowLeft:'left',ArrowRight:'right',
+             Enter:'a',' ':'a',z:'a',x:'b',f:'b'}[e.key];
+  if(k){ e.preventDefault(); onPad(k); }
 });
 els.forEach((el,i)=>el.addEventListener('click', ()=>{ ensureAudio(); cursor=i; paint(); reveal(); }));
 

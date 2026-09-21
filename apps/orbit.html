@@ -77,7 +77,7 @@ function reset(){
   spawnTimer = 0; spawnEvery = 1500; elapsed = 0;
   aim = -Math.PI/2;
   updateHud();
-  showMsg('Orbit Defense', 'Turn the wheel to aim, press center to fire');
+  showMsg('Orbit Defense', 'Turn the pad to aim, A to fire');
 }
 function updateHud(){ $score.textContent = 'Score: '+score; $lives.textContent = 'Lives: '+lives; }
 function showMsg(big, small){ $msg.innerHTML = '<div class="big">'+big+'</div><div class="small">'+(small||'')+'</div>'; }
@@ -85,6 +85,17 @@ function hideMsg(){ $msg.innerHTML=''; }
 
 function turn(dir, mult){
   aim += dir*(mult||1)*TURN_STEP;
+}
+/* ---- d-pad ----
+   Aiming is continuous, so like the paddle this one asks for held directions. Left and right
+   swing the turret; up and down fire as well as A, because in the middle of a wave your thumb
+   is already on the cross. */
+function onPad(k, repeat){
+  ensureAudio();
+  const mult = repeat ? 1 : 3;          // the first press of a hold swings further
+  if(k==='left')       turn(-1, mult);
+  else if(k==='right') turn(1, mult);
+  else if(k==='a' || k==='b' || k==='up' || k==='down') fire();
 }
 function fire(){
   ensureAudio();
@@ -179,9 +190,16 @@ function draw(){
   ctx.restore();
 }
 
+addEventListener('keydown', e=>{
+  const k = {ArrowUp:'up',ArrowDown:'down',ArrowLeft:'left',ArrowRight:'right',
+             Enter:'a',' ':'a',z:'a',x:'b'}[e.key];
+  if(k){ e.preventDefault(); onPad(k, e.repeat); }
+});
+
 window.addEventListener('message', (e)=>{
   if(!e.data || e.data.channel!=='hplay') return;
   if(e.data.type==='wheel'){ ensureAudio(); turn(e.data.dir, e.data.mult); }
+  if(e.data.type==='pad') onPad(e.data.key, e.data.repeat);
   if(e.data.type==='select') fire();
 });
 

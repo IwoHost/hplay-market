@@ -31,7 +31,7 @@
   <div class="title">BLACKOUT</div>
   <div class="grid" id="grid"></div>
   <div class="status" id="status"></div>
-  <div class="hint">Wheel moves the cursor, center toggles it and its neighbors — turn every light off</div>
+  <div class="hint">Pad moves the cursor, A toggles it and its neighbours, B is a new puzzle. Turn every light off</div>
 
 <script>
 "use strict";
@@ -130,7 +130,31 @@ function press(){
 window.addEventListener('message', (e)=>{
   if(!e.data || e.data.channel!=='hplay') return;
   if(e.data.type==='wheel') move(e.data.dir, e.data.mult);
+  if(e.data.type==='pad') onPad(e.data.key);
   if(e.data.type==='select') press();
+});
+
+/* ---- d-pad ----
+   Five by five. Pressing a light flips its neighbours, so which cell is next to which is the
+   whole puzzle, and walking the grid in a line hid exactly that. */
+function onPad(k){
+  if(k==='a'){ press(); return; }
+  if(k==='b'){ newPuzzle(); return; }
+  if(k==='esc') return;              // unanswered: the player offers to leave
+  if(won) return;
+  let x = cursor % SIZE, y = (cursor / SIZE) | 0;
+  if(k==='left')  x = (x + SIZE - 1) % SIZE;
+  else if(k==='right') x = (x + 1) % SIZE;
+  else if(k==='up')    y = (y + SIZE - 1) % SIZE;
+  else if(k==='down')  y = (y + 1) % SIZE;
+  else return;
+  cursor = y*SIZE + x;
+  paint();
+}
+addEventListener('keydown', e=>{
+  const k = {ArrowUp:'up',ArrowDown:'down',ArrowLeft:'left',ArrowRight:'right',
+             Enter:'a',' ':'a',z:'a',x:'b'}[e.key];
+  if(k){ e.preventDefault(); onPad(k); }
 });
 cellEls.forEach((el,i)=>el.addEventListener('click', ()=>{ ensureAudio(); cursor=i; paint(); press(); }));
 

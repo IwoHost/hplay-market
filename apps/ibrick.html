@@ -84,7 +84,7 @@ function initGame(){
   layoutBricks();
   resetBall();
   updateHud();
-  showMsg('iBrick', 'Turn the wheel to move, press center to launch');
+  showMsg('iBrick', 'Turn the pad to move, A to launch');
 }
 function updateHud(){ $score.textContent = 'Score: '+score; $lives.textContent = 'Lives: '+lives; }
 function showMsg(big, small){ $msg.innerHTML = '<div class="big">'+big+'</div><div class="small">'+(small||'')+'</div>'; }
@@ -92,6 +92,19 @@ function hideMsg(){ $msg.innerHTML = ''; }
 
 function movePaddle(dx){
   paddleX = Math.max(0, Math.min(W-PADDLE_W, paddleX+dx));
+}
+/* ---- d-pad ----
+   A paddle cannot be tapped into place, so this app asks the player for held directions
+   (padRepeat in the store manifest). The first press of a hold moves a long way so it still
+   feels responsive on an older build with no repeat; the repeats that follow are small, which
+   is what makes it slide rather than jump. */
+const PAD_STEP_FIRST = 26, PAD_STEP_HELD = 9;
+function onPad(k, repeat){
+  const step = repeat ? PAD_STEP_HELD : PAD_STEP_FIRST;
+  if(k==='left')       movePaddle(-step);
+  else if(k==='right') movePaddle(step);
+  else if(k==='a' || k==='b') launch();
+  // up, down and esc are not ours
 }
 function launch(){
   if(over){ initGame(); return; }
@@ -151,9 +164,16 @@ $c.addEventListener('pointermove', e=>{ if(!dragging) return; movePaddle(e.clien
 $c.addEventListener('pointerup', ()=>{ dragging = false; });
 $c.addEventListener('pointercancel', ()=>{ dragging = false; });
 
+addEventListener('keydown', e=>{
+  const k = {ArrowUp:'up',ArrowDown:'down',ArrowLeft:'left',ArrowRight:'right',
+             Enter:'a',' ':'a',z:'a',x:'b'}[e.key];
+  if(k){ e.preventDefault(); onPad(k, e.repeat); }
+});
+
 window.addEventListener('message', (e)=>{
   if(!e.data || e.data.channel!=='hplay') return;
   if(e.data.type==='wheel') movePaddle(e.data.dir*(e.data.mult||1)*10);
+  if(e.data.type==='pad') onPad(e.data.key, e.data.repeat);
   if(e.data.type==='select') launch();
 });
 

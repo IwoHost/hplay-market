@@ -95,7 +95,30 @@ window.addEventListener('message', (e)=>{
     focus = ((focus + e.data.dir*(e.data.mult||1)) % 9 + 9) % 9;
     render();
   }
+  if(e.data.type==='pad') onPad(e.data.key);
   if(e.data.type==='select'){ if(over) newGame(); else place(focus); }
+});
+
+/* ---- d-pad ----
+   A board is two dimensional and the wheel only ever was one, so the cursor walked the nine
+   squares in a line. Here it moves the way the board looks. Wrapping is kept: it is three
+   wide, and running off the edge is quicker than turning back. */
+function onPad(k){
+  let x = focus % 3, y = (focus / 3) | 0;
+  if(k==='left')  x = (x + 2) % 3;
+  else if(k==='right') x = (x + 1) % 3;
+  else if(k==='up')    y = (y + 2) % 3;
+  else if(k==='down')  y = (y + 1) % 3;
+  else if(k==='a'){ if(over) newGame(); else place(focus); return; }
+  else if(k==='b'){ newGame(); return; }
+  else return;                       // esc is left unanswered, so the player offers to leave
+  focus = y*3 + x;
+  render();
+}
+addEventListener('keydown', e=>{
+  const k = {ArrowUp:'up',ArrowDown:'down',ArrowLeft:'left',ArrowRight:'right',
+             Enter:'a',' ':'a',z:'a',x:'b'}[e.key];
+  if(k){ e.preventDefault(); onPad(k); }
 });
 
 newGame();

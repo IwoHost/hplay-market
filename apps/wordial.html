@@ -36,7 +36,7 @@
   <div class="title">WORDIAL</div>
   <div class="grid" id="grid"></div>
   <div class="status" id="status"></div>
-  <div class="hint">Spin the wheel to dial a letter, press center to lock it in</div>
+  <div class="hint">Spin the pad up and down for a letter, left and right to jump, A locks it in</div>
 
 <script>
 "use strict";
@@ -140,6 +140,18 @@ function spin(dir, mult){
   paintDial();
   tick();
 }
+/* ---- d-pad ----
+   Twenty six letters is a long way to turn. Up and down step one at a time, the way you enter
+   a name into an arcade cabinet; left and right jump five, so the far end of the alphabet is
+   three presses away instead of thirteen. */
+function onPad(k){
+  if(k==='up')         spin(1, 1);
+  else if(k==='down')  spin(-1, 1);
+  else if(k==='right') spin(1, 5);
+  else if(k==='left')  spin(-1, 5);
+  else if(k==='a' || k==='b') confirm_();
+  // esc unanswered: the player offers to leave
+}
 function confirm_(){
   ensureAudio();
   if(over){ newGame(); return; }
@@ -182,6 +194,7 @@ function confirm_(){
 window.addEventListener('message', (e)=>{
   if(!e.data || e.data.channel!=='hplay') return;
   if(e.data.type==='wheel') spin(e.data.dir, e.data.mult);
+  if(e.data.type==='pad') onPad(e.data.key);
   if(e.data.type==='select') confirm_();
 });
 document.addEventListener('keydown', e=>{

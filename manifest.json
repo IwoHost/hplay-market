@@ -1,67 +1,338 @@
 {
   "apps": [
-    { "id": "dice", "name": "Dice Roller", "desc": "Tap to roll a die", "file": "apps/dice.html" },
-    { "id": "library-stats", "name": "Library & Stats", "desc": "View your songs and usage stats", "file": "apps/library-stats.html" },
-    { "id": "mashup", "name": "Mashup", "desc": "One song per ear, panned left/right", "file": "apps/mashup.html" },
-    { "id": "metronome", "name": "Metronome", "desc": "Wheel-adjustable tempo click", "file": "apps/metronome.html" },
-    { "id": "ibrick", "name": "iBrick", "desc": "Classic brick-breaker, wheel moves the paddle", "file": "apps/ibrick.html" },
-    { "id": "magic8ball", "name": "Magic 8-Ball", "desc": "Press center to ask", "file": "apps/magic8ball.html" },
-    { "id": "tictactoe", "name": "Tic-Tac-Toe", "desc": "Two player, wheel moves the cursor", "file": "apps/tictactoe.html" },
-    { "id": "radiodial", "name": "Radio Dial", "desc": "Tune your library like FM radio, wheel scans, center seeks", "file": "apps/radio-dial.html" },
-    { "id": "orbit", "name": "Orbit Defense", "desc": "Wheel aims the turret, center fires", "file": "apps/orbit.html" },
-    { "id": "echo", "name": "Echo", "desc": "Wheel-navigated color memory game", "file": "apps/echo.html" },
-    { "id": "coil", "name": "Coil", "desc": "Wheel steers, don't run into yourself", "file": "apps/coil.html" },
-    { "id": "wordial", "name": "Wordial", "desc": "Dial letters with the wheel to guess the word", "file": "apps/wordial.html" },
-    { "id": "spinner", "name": "Spinner", "desc": "Wind up the wheel, release for a spin", "file": "apps/spinner.html" },
-    { "id": "safecracker", "name": "Safecracker", "desc": "Dial in the combo by feel — listen for warmth", "file": "apps/safecracker.html" },
-    { "id": "pulse", "name": "Pulse", "desc": "Wheel sets the speed, center hits the beat", "file": "apps/pulse.html" },
-    { "id": "blackout", "name": "Blackout", "desc": "Toggle puzzle — turn every light off", "file": "apps/blackout.html" },
-    { "id": "minefield", "name": "Minefield", "desc": "Wheel moves, center reveals — mind the mines", "file": "apps/minefield.html" },
-    { "id": "youtube", "name": "YouTube", "desc": "Save links, wheel seeks, center plays or pauses", "file": "apps/youtube.html" },
-    { "id": "cable", "name": "Cable", "desc": "Collect the records, don't bite your own cable", "file": "apps/cable.html", "controls": "dpad" },
-    { "id": "tally", "name": "Tally", "desc": "A dark night on the Caul line. He forgot how to count, and something noticed", "file": "apps/tally.html", "controls": "dpad" }
+    {
+      "id": "dice",
+      "name": "Dice Roller",
+      "desc": "Tap to roll a die",
+      "file": "apps/dice.html"
+    },
+    {
+      "id": "library-stats",
+      "name": "Library & Stats",
+      "desc": "View your songs and usage stats",
+      "file": "apps/library-stats.html"
+    },
+    {
+      "id": "mashup",
+      "name": "Mashup",
+      "desc": "One song per ear, panned left/right",
+      "file": "apps/mashup.html"
+    },
+    {
+      "id": "metronome",
+      "name": "Metronome",
+      "desc": "Wheel-adjustable tempo click",
+      "file": "apps/metronome.html"
+    },
+    {
+      "id": "ibrick",
+      "name": "iBrick",
+      "desc": "Classic brick-breaker, hold the pad to slide the paddle",
+      "file": "apps/ibrick.html",
+      "controls": "dpad",
+      "padRepeat": true
+    },
+    {
+      "id": "magic8ball",
+      "name": "Magic 8-Ball",
+      "desc": "Press center to ask",
+      "file": "apps/magic8ball.html"
+    },
+    {
+      "id": "tictactoe",
+      "name": "Tic-Tac-Toe",
+      "desc": "Two player, the pad moves the cursor",
+      "file": "apps/tictactoe.html",
+      "controls": "dpad"
+    },
+    {
+      "id": "radiodial",
+      "name": "Radio Dial",
+      "desc": "Tune your library like FM radio, wheel scans, center seeks",
+      "file": "apps/radio-dial.html"
+    },
+    {
+      "id": "orbit",
+      "name": "Orbit Defense",
+      "desc": "Hold the pad to swing the turret, A fires",
+      "file": "apps/orbit.html",
+      "controls": "dpad",
+      "padRepeat": true
+    },
+    {
+      "id": "echo",
+      "name": "Echo",
+      "desc": "Colour memory game, the pad walks the ring",
+      "file": "apps/echo.html",
+      "controls": "dpad"
+    },
+    {
+      "id": "coil",
+      "name": "Coil",
+      "desc": "Steer with the pad, don’t run into yourself",
+      "file": "apps/coil.html",
+      "controls": "dpad"
+    },
+    {
+      "id": "wordial",
+      "name": "Wordial",
+      "desc": "Dial letters with the pad to guess the word",
+      "file": "apps/wordial.html",
+      "controls": "dpad"
+    },
+    {
+      "id": "spinner",
+      "name": "Spinner",
+      "desc": "Wind up the wheel, release for a spin",
+      "file": "apps/spinner.html"
+    },
+    {
+      "id": "safecracker",
+      "name": "Safecracker",
+      "desc": "Dial in the combo by feel — listen for warmth",
+      "file": "apps/safecracker.html"
+    },
+    {
+      "id": "pulse",
+      "name": "Pulse",
+      "desc": "Up and down set the speed, A hits the beat",
+      "file": "apps/pulse.html",
+      "controls": "dpad"
+    },
+    {
+      "id": "blackout",
+      "name": "Blackout",
+      "desc": "Toggle puzzle — turn every light off",
+      "file": "apps/blackout.html",
+      "controls": "dpad"
+    },
+    {
+      "id": "minefield",
+      "name": "Minefield",
+      "desc": "Pad moves, A reveals, B flags — mind the mines",
+      "file": "apps/minefield.html",
+      "controls": "dpad"
+    },
+    {
+      "id": "youtube",
+      "name": "YouTube",
+      "desc": "Save links, wheel seeks, center plays or pauses",
+      "file": "apps/youtube.html"
+    },
+    {
+      "id": "cable",
+      "name": "Cable",
+      "desc": "Collect the records, don't bite your own cable",
+      "file": "apps/cable.html",
+      "controls": "dpad"
+    },
+    {
+      "id": "tally",
+      "name": "Tally",
+      "desc": "A dark night on the Caul line. He forgot how to count, and something noticed",
+      "file": "apps/tally.html",
+      "controls": "dpad"
+    }
   ],
   "themes": [
-    { "id": "gold", "name": "Gold",
-      "b": ["#f2dfa8", "#e0c274", "#c39a45", "#9c7527"],
-      "w": ["#e7c583", "#d1a955", "#b3872f", "#8f671f"],
-      "c": ["#dcb567", "#c19a44", "#a37a2f"],
-      "lab": "#4a3618", "labsh": "rgba(255,250,230,.75)" },
-    { "id": "rosegold", "name": "Rose Gold",
-      "b": ["#f6d6c9", "#eab29d", "#d18b75", "#ac6552"],
-      "w": ["#e9bba8", "#d99d85", "#bd7a63", "#98594a"],
-      "c": ["#dda78f", "#c58a71", "#a66c56"],
-      "lab": "#5a352b", "labsh": "rgba(255,240,232,.75)" },
-    { "id": "teal", "name": "Teal",
-      "b": ["#4fd8c4", "#2bb6a4", "#178f80", "#0c665c"],
-      "w": ["#37b6a8", "#249689", "#17766b", "#0c554d"],
-      "c": ["#3cae9e", "#288f81", "#1a6f64"],
-      "lab": "#eafffa", "labsh": "rgba(0,40,36,.65)" },
-    { "id": "midnight", "name": "Midnight",
-      "b": ["#333a54", "#232840", "#161a2c", "#0b0d18"],
-      "w": ["#2a3048", "#1c2036", "#121526", "#080a14"],
-      "c": ["#2e3450", "#1e2338", "#141828"],
-      "lab": "#e4e7f7", "labsh": "rgba(0,0,8,.7)" },
-    { "id": "sunset", "name": "Sunset",
-      "b": ["#ffbf6b", "#ff9159", "#f0616b", "#c23f66"],
-      "w": ["#f2a862", "#e87f57", "#d5586a", "#a83a5c"],
-      "c": ["#f0a463", "#e07f5c", "#c85f66"],
-      "lab": "#fff6ee", "labsh": "rgba(60,10,20,.6)" },
-    { "id": "tf2red", "name": "TF2 RED",
-      "b": ["#e8735a", "#c9503a", "#9c3323", "#6e2015"],
-      "w": ["#c94a36", "#a83a28", "#87301f", "#5f2015"],
-      "c": ["#b8402e", "#973122", "#75251a"],
-      "lab": "#fff2ea", "labsh": "rgba(50,10,5,.6)" },
-    { "id": "tf2blu", "name": "TF2 BLU",
-      "b": ["#6fa8c9", "#4a83ac", "#33607f", "#1f3f57"],
-      "w": ["#3f74a3", "#305f89", "#264c6e", "#182f47"],
-      "c": ["#3868a0", "#2c5486", "#20405f"],
-      "lab": "#eef7ff", "labsh": "rgba(0,20,45,.6)" }
+    {
+      "id": "gold",
+      "name": "Gold",
+      "b": [
+        "#f2dfa8",
+        "#e0c274",
+        "#c39a45",
+        "#9c7527"
+      ],
+      "w": [
+        "#e7c583",
+        "#d1a955",
+        "#b3872f",
+        "#8f671f"
+      ],
+      "c": [
+        "#dcb567",
+        "#c19a44",
+        "#a37a2f"
+      ],
+      "lab": "#4a3618",
+      "labsh": "rgba(255,250,230,.75)"
+    },
+    {
+      "id": "rosegold",
+      "name": "Rose Gold",
+      "b": [
+        "#f6d6c9",
+        "#eab29d",
+        "#d18b75",
+        "#ac6552"
+      ],
+      "w": [
+        "#e9bba8",
+        "#d99d85",
+        "#bd7a63",
+        "#98594a"
+      ],
+      "c": [
+        "#dda78f",
+        "#c58a71",
+        "#a66c56"
+      ],
+      "lab": "#5a352b",
+      "labsh": "rgba(255,240,232,.75)"
+    },
+    {
+      "id": "teal",
+      "name": "Teal",
+      "b": [
+        "#4fd8c4",
+        "#2bb6a4",
+        "#178f80",
+        "#0c665c"
+      ],
+      "w": [
+        "#37b6a8",
+        "#249689",
+        "#17766b",
+        "#0c554d"
+      ],
+      "c": [
+        "#3cae9e",
+        "#288f81",
+        "#1a6f64"
+      ],
+      "lab": "#eafffa",
+      "labsh": "rgba(0,40,36,.65)"
+    },
+    {
+      "id": "midnight",
+      "name": "Midnight",
+      "b": [
+        "#333a54",
+        "#232840",
+        "#161a2c",
+        "#0b0d18"
+      ],
+      "w": [
+        "#2a3048",
+        "#1c2036",
+        "#121526",
+        "#080a14"
+      ],
+      "c": [
+        "#2e3450",
+        "#1e2338",
+        "#141828"
+      ],
+      "lab": "#e4e7f7",
+      "labsh": "rgba(0,0,8,.7)"
+    },
+    {
+      "id": "sunset",
+      "name": "Sunset",
+      "b": [
+        "#ffbf6b",
+        "#ff9159",
+        "#f0616b",
+        "#c23f66"
+      ],
+      "w": [
+        "#f2a862",
+        "#e87f57",
+        "#d5586a",
+        "#a83a5c"
+      ],
+      "c": [
+        "#f0a463",
+        "#e07f5c",
+        "#c85f66"
+      ],
+      "lab": "#fff6ee",
+      "labsh": "rgba(60,10,20,.6)"
+    },
+    {
+      "id": "tf2red",
+      "name": "TF2 RED",
+      "b": [
+        "#e8735a",
+        "#c9503a",
+        "#9c3323",
+        "#6e2015"
+      ],
+      "w": [
+        "#c94a36",
+        "#a83a28",
+        "#87301f",
+        "#5f2015"
+      ],
+      "c": [
+        "#b8402e",
+        "#973122",
+        "#75251a"
+      ],
+      "lab": "#fff2ea",
+      "labsh": "rgba(50,10,5,.6)"
+    },
+    {
+      "id": "tf2blu",
+      "name": "TF2 BLU",
+      "b": [
+        "#6fa8c9",
+        "#4a83ac",
+        "#33607f",
+        "#1f3f57"
+      ],
+      "w": [
+        "#3f74a3",
+        "#305f89",
+        "#264c6e",
+        "#182f47"
+      ],
+      "c": [
+        "#3868a0",
+        "#2c5486",
+        "#20405f"
+      ],
+      "lab": "#eef7ff",
+      "labsh": "rgba(0,20,45,.6)"
+    }
   ],
   "decals": [
-    { "id": "star", "name": "Star", "file": "decals/star.svg", "x": 80, "y": 45, "w": 12, "rot": -10 },
-    { "id": "heart", "name": "Heart", "file": "decals/heart.svg", "x": 18, "y": 46, "w": 11, "rot": 8 },
-    { "id": "note", "name": "Note", "file": "decals/note.svg", "x": 50, "y": 47, "w": 10, "rot": 0 },
-    { "id": "gearbadge", "name": "Mercenary Gear", "file": "decals/gearbadge.svg", "x": 50, "y": 15, "w": 13, "rot": -6 }
+    {
+      "id": "star",
+      "name": "Star",
+      "file": "decals/star.svg",
+      "x": 80,
+      "y": 45,
+      "w": 12,
+      "rot": -10
+    },
+    {
+      "id": "heart",
+      "name": "Heart",
+      "file": "decals/heart.svg",
+      "x": 18,
+      "y": 46,
+      "w": 11,
+      "rot": 8
+    },
+    {
+      "id": "note",
+      "name": "Note",
+      "file": "decals/note.svg",
+      "x": 50,
+      "y": 47,
+      "w": 10,
+      "rot": 0
+    },
+    {
+      "id": "gearbadge",
+      "name": "Mercenary Gear",
+      "file": "decals/gearbadge.svg",
+      "x": 50,
+      "y": 15,
+      "w": 13,
+      "rot": -6
+    }
   ]
 }
