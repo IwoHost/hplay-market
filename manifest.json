@@ -26,9 +26,9 @@
     },
     {
       "id": "ibrick",
-      "name": "iBrick",
-      "desc": "Classic brick-breaker, hold the pad to slide the paddle",
-      "file": "apps/ibrick.html",
+      "name": "Rebound",
+      "desc": "Brick-breaker. Hold the pad to slide the paddle",
+      "file": "apps/rebound.html",
       "controls": "dpad",
       "padRepeat": true
     },

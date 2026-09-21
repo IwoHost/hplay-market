@@ -83,8 +83,11 @@ function neighbors(i){
   }
   return out;
 }
-function layout(excludeIdx){
+function layout(excludeIdx, keepFlags){
+  // moving the mines must not take the player's marks with them
+  const flags = keepFlags ? cells.map(c=>c.flagged) : null;
   cells = new Array(COLS*ROWS).fill(null).map(()=>({mine:false, revealed:false, flagged:false, count:0}));
+  if(flags && flags.length===cells.length) cells.forEach((c,i)=>{ c.flagged = flags[i]; });
   let placed = 0;
   while(placed < MINES){
     const i = Math.floor(Math.random()*COLS*ROWS);
@@ -155,12 +158,13 @@ function move(dir, mult){
 function reveal(){
   ensureAudio();
   if(over){ newGame(); return; }
+  if(cells[cursor].flagged) return;          // a flag is a refusal to open this one
   if(firstMove){
     firstMove = false;
-    if(cells[cursor].mine) layout(cursor);   // guarantee a safe first click
+    if(cells[cursor].mine) layout(cursor, true);   // guarantee a safe first click
   }
   const cell = cells[cursor];
-  if(cell.revealed || cell.flagged) return;
+  if(cell.revealed) return;
   if(cell.mine){
     cell.revealed = true;
     over = true;
