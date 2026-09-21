@@ -28,7 +28,7 @@ decals/         images referenced from manifest.json's decals list
   ],
   "themes": [
     {
-      "id": "sunset", "name": "Sunset",
+      "id": "sunset", "name": "Sunset", "icon": "Red",
       "b": ["#hex1", "#hex2", "#hex3", "#hex4"],
       "w": ["#hex1", "#hex2", "#hex3", "#hex4"],
       "c": ["#hex1", "#hex2", "#hex3"],
@@ -55,6 +55,12 @@ decals/         images referenced from manifest.json's decals list
   the app if you did not, so nobody gets stuck inside. Holding ESC always offers to leave.
 - **themes**: `b` = body gradient stops (4 colors), `w`/`c` = click-wheel gradient stops (4 + 3
   colors). Optional `lab`/`labsh` style the wheel's text labels; both default sensibly if omitted.
+- **themes**, `icon`: which home screen icon this theme wears, if the user has Match Icon on.
+  Android cannot repaint a launcher icon, so Hplay ships exactly six and a downloaded theme has
+  to borrow one: `"Blue"`, `"Silver"`, `"Black"`, `"Red"`, `"Green"` or `"Purple"`. Say which of
+  the six your colors are closest to. Leave it out and Hplay matches the colors itself, which is
+  usually right but has no way to know what you were going for — a warm brown is a defensible
+  Red or a defensible Black. Either way the user can overrule it per theme.
 - **decals**: `file` is a plain PNG/SVG image (no code, so no sandboxing needed). `x`/`y` are position
   as a percent of the body (0–100, clamped), `w` is width as a percent of screen width (clamped
   4–40), `rot` is rotation in degrees (clamped ±180). Decals render behind the screen and click wheel,

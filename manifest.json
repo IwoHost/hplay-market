@@ -138,6 +138,7 @@
     {
       "id": "rosegold",
       "name": "Rose Gold",
+      "icon": "Silver",
       "b": [
         "#f6d6c9",
         "#eab29d",
@@ -161,6 +162,7 @@
     {
       "id": "teal",
       "name": "Teal",
+      "icon": "Green",
       "b": [
         "#4fd8c4",
         "#2bb6a4",
@@ -184,6 +186,7 @@
     {
       "id": "midnight",
       "name": "Midnight",
+      "icon": "Black",
       "b": [
         "#333a54",
         "#232840",
@@ -207,6 +210,7 @@
     {
       "id": "sunset",
       "name": "Sunset",
+      "icon": "Red",
       "b": [
         "#ffbf6b",
         "#ff9159",
@@ -230,6 +234,7 @@
     {
       "id": "tf2red",
       "name": "TF2 RED",
+      "icon": "Red",
       "b": [
         "#e8735a",
         "#c9503a",
@@ -253,6 +258,7 @@
     {
       "id": "tf2blu",
       "name": "TF2 BLU",
+      "icon": "Blue",
       "b": [
         "#6fa8c9",
         "#4a83ac",
