@@ -61,6 +61,11 @@ decals/         images referenced from manifest.json's decals list
   the six your colors are closest to. Leave it out and Hplay matches the colors itself, which is
   usually right but has no way to know what you were going for — a warm brown is a defensible
   Red or a defensible Black. Either way the user can overrule it per theme.
+
+  The icon has two halves — the body behind, the wheel on top — and all 36 pairings exist, so
+  you can name both: `"icon": "Silver/Black"` is a light body with a dark wheel. Worth doing if
+  your theme is built out of two materials, because flattening it to one color stops it looking
+  like itself. A single name means both halves.
 - **decals**: `file` is a plain PNG/SVG image (no code, so no sandboxing needed). `x`/`y` are position
   as a percent of the body (0–100, clamped), `w` is width as a percent of screen width (clamped
   4–40), `rot` is rotation in degrees (clamped ±180). Decals render behind the screen and click wheel,
