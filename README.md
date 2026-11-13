@@ -134,11 +134,12 @@ window.addEventListener('message', (e) => {
 There's no single right way to use this — it depends on what the app does:
 
 - **One main action** (e.g. a dice roller): make `select` trigger it. See `apps/dice.html`.
-- **A scrollable read-only view**: make `wheel` scroll the page. See `apps/library-stats.html`.
-- **Multiple buttons/rows to choose between**: track a focused index yourself, move it on `wheel`,
-  highlight it (e.g. an outline), and call `.click()` on the focused element on `select`. See
-  `apps/mashup.html` (button + list navigation) or `apps/metronome.html` (a value dialed in by
-  `wheel`, started/stopped by `select`).
+- **Several things to choose between**: rows, a focused index you move on `wheel`, the focused
+  row drawn with Hplay's highlight bar, and `select` does it. See `apps/starter.html`.
+
+**How an app should look and move** (sizes, colours, the highlight bar, how the wheel steps,
+what layouts to use) is in [`apps/GUIDELINES.md`](apps/GUIDELINES.md), measured from Hplay
+itself. Start new apps from `apps/starter.html`, which already follows it.
 
 The hardware Menu/back button always exits the app back to Hplay's Get More screen — it's never
 forwarded into the iframe, so there's no need to handle it.

@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Starter</title>
+<!--
+  The starting point for a new Hplay app. Copy this file, rename it, and keep everything between
+  "HPLAY KIT" and "END KIT" exactly as it is: that block is what makes an app look like part of
+  Hplay rather than a web page dropped into it. apps/GUIDELINES.md explains every number in it.
+  Below the kit is a tiny working app (a counter) showing the three patterns most apps need:
+  a status line, a big number, and a list of rows driven by the wheel.
+-->
+<style>
+/* ===== HPLAY KIT (v1) ===== keep in step with apps/GUIDELINES.md */
+/* One unit, u, is 1/224 of the app's height: the space under Hplay's title bar is 224 of
+   Hplay's own units tall on every phone, so sizes written in u match Hplay's own screens
+   exactly. Hplay may send its real unit (it includes the Text Size setting); until it does,
+   this is the same thing measured from here. Never size anything in px or vw. */
+:root{
+  --u: calc(100vh / 224);
+  --font: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --bg:#fdfdfe; --fg:#1c1f24; --val:#7a7f87; --dim:#9a9ea6; --hint:#8b8f97; --line:rgba(0,0,0,.09);
+  --well:#eef0f3;
+  --sel1:#84bef0; --sel2:#4390e0; --sel3:#2064c6; --sel4:#3a7ad1; --selsh:rgba(0,30,80,.35);
+  --green:#3a9a3a; --red:#d13a2f; --orange:#d98420; --purple:#8a4bc0; --blue:#2064c6;
+}
+/* the five screen modes Hplay has; Hplay says which one is on (see GUIDELINES, "Theme") */
+:root[data-mode="dark"]{ --bg:#101318; --fg:#dde2e9; --val:#7a7f87; --dim:#5c636d; --hint:#7d8590; --line:rgba(255,255,255,.08); --well:#1c1f25; }
+:root[data-mode="contrast"]{ --bg:#000; --fg:#fff; --val:#c9c9c9; --dim:#c9c9c9; --hint:#c9c9c9; --line:#fff; --well:#000;
+  --sel1:#0060df; --sel2:#0060df; --sel3:#0060df; --sel4:#0060df; --selsh:transparent; }
+:root[data-mode="night"]{ --bg:#0d0a07; --fg:#e8bd7e; --val:#a8814f; --dim:#6d5637; --hint:#a8814f; --line:rgba(232,189,126,.12); --well:#1a140e;
+  --sel1:#c98a3a; --sel2:#a2651f; --sel3:#7d4a11; --sel4:#8f5718; --selsh:rgba(40,20,0,.4); }
+:root[data-mode="paper"]{ --bg:#f4ecd8; --fg:#2f2718; --val:#7d7059; --dim:#8d8065; --hint:#7d7059; --line:rgba(60,45,20,.12); --well:#e8dec6; }
+
+*{ box-sizing:border-box; margin:0; padding:0; }
+html,body{ height:100%; overflow:hidden; background:var(--bg); color:var(--fg);
+  font-family:var(--font); -webkit-font-smoothing:antialiased; user-select:none; -webkit-user-select:none; }
+body{ display:flex; flex-direction:column; }
+
+/* a row: the same height, padding, type and highlight as every list in Hplay */
+.row{ height:calc(var(--u)*17); flex:0 0 auto; display:flex; align-items:center; gap:calc(var(--u)*4);
+  padding:0 calc(var(--u)*6); font-size:calc(var(--u)*9.8); font-weight:600; white-space:nowrap; }
+.row .lab{ flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; }
+.row .val{ color:var(--val); font-weight:500; font-variant-numeric:tabular-nums; }
+.row.dim{ color:var(--dim); font-weight:500; }
+.row.sel, .cell.sel{ background:linear-gradient(180deg,var(--sel1) 0%,var(--sel2) 46%,var(--sel3) 52%,var(--sel4) 100%);
+  color:#fff; text-shadow:0 1px 1px var(--selsh); }
+.row.sel .val{ color:rgba(255,255,255,.88); }
+/* a row whose job has a colour: green starts or adds, red removes, orange is being changed */
+.acc-green{ --sel1:#8ee08a; --sel2:#4fb022; --sel3:#227a22; --sel4:#3a9a3a; --selsh:rgba(0,40,0,.35); }
+.acc-red{ --sel1:#f0847e; --sel2:#e0433a; --sel3:#c62015; --sel4:#d13a2f; --selsh:rgba(60,0,0,.35); }
+.acc-orange{ --sel1:#f5c078; --sel2:#e8912f; --sel3:#c96d10; --sel4:#d98420; --selsh:rgba(60,28,0,.35); }
+.acc-purple{ --sel1:#c79ae8; --sel2:#9a5ad0; --sel3:#7433b0; --sel4:#8a4bc0; --selsh:rgba(30,0,55,.35); }
+
+/* the status line at the top of a game: two or three short facts, never a title */
+.status{ flex:0 0 auto; display:flex; justify-content:space-between; align-items:center;
+  height:calc(var(--u)*15); padding:0 calc(var(--u)*6);
+  font-size:calc(var(--u)*8); font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--hint); }
+.status b{ color:var(--fg); font-weight:800; font-variant-numeric:tabular-nums; letter-spacing:0; }
+
+/* the big number, as on Clock and Stopwatch, with its small caption underneath */
+.big{ font-size:calc(var(--u)*34); font-weight:800; line-height:1; letter-spacing:.02em;
+  font-variant-numeric:tabular-nums; text-align:center; }
+.cap{ font-size:calc(var(--u)*8); font-weight:700; letter-spacing:.14em; text-transform:uppercase;
+  color:var(--hint); text-align:center; margin-top:calc(var(--u)*4); }
+
+/* a start, pause or game-over card over the playfield: what Hplay calls a splash */
+.splash{ display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center;
+  gap:calc(var(--u)*5); padding:0 calc(var(--u)*10); }
+.splash .t{ font-size:calc(var(--u)*14); font-weight:800; }
+.splash .s{ font-size:calc(var(--u)*9); line-height:1.6; color:var(--val); }
+
+/* the one line of help an app may show, at the very bottom */
+.hint{ flex:0 0 auto; padding:calc(var(--u)*3) calc(var(--u)*6) calc(var(--u)*4);
+  font-size:calc(var(--u)*8); font-weight:600; color:var(--hint); text-align:center;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
+/* a cell in a game board: a flat well, and the same highlight as a row when focused */
+.cell{ background:var(--well); border-radius:calc(var(--u)*1.5); }
+@media (prefers-reduced-motion: reduce){ *{ animation:none !important; transition:none !important; } }
+/* ===== END KIT ===== */
+
+.face{ flex:0 0 auto; padding:calc(var(--u)*6) 0 calc(var(--u)*5); }   /* the number at the top, as on Stopwatch */
+.list{ flex:1; min-height:0; }
+</style>
+</head>
+<body>
+  <div class="status"><span>Best <b id="best">0</b></span><span>Steps <b id="steps">0</b></span></div>
+  <div class="face"><div class="big" id="num">0</div><div class="cap" id="cap">count</div></div>
+  <div class="list" id="list"></div>
+
+<script>
+/* ===== HPLAY KIT (v1), script half ===== */
+// Hplay says which screen mode is on and how big its unit is. Older versions of Hplay do not
+// send this yet; then the app simply stays in Light, sized from its own height.
+addEventListener('message', function(e){
+  var m = e.data;
+  if(!m || m.channel !== 'hplay' || m.type !== 'theme') return;
+  document.documentElement.dataset.mode = m.mode || 'light';
+  if(m.u > 0) document.documentElement.style.setProperty('--u', m.u + 'px');
+});
+function hplay(msg){ msg.channel = 'hplay'; parent.postMessage(msg, '*'); }
+/* ===== END KIT ===== */
+
+// The app itself: a counter. Turn the wheel to choose a row, press centre to do it. While the
+// Step row is being changed it turns orange and the wheel changes the number instead, the same
+// way a setting is changed in Hplay; centre again puts it back.
+var n = 0, step = 1, best = 0, steps = 0, sel = 0, editing = false;
+var ROWS = [
+  { lab:'Add',      acc:'green', act:function(){ n += step; steps++; } },
+  { lab:'Take Away',            act:function(){ n -= step; steps++; } },
+  { lab:'Step',     val:function(){ return '× ' + step; }, edit:true },
+  { lab:'Reset',    acc:'red',  act:function(){ n = 0; steps = 0; } },
+];
+function draw(){
+  best = Math.max(best, n);
+  document.getElementById('num').textContent = n;
+  document.getElementById('best').textContent = best;
+  document.getElementById('steps').textContent = steps;
+  document.getElementById('list').innerHTML = ROWS.map(function(r, i){
+    var cls = 'row' + (i === sel ? ' sel' : '') + (i === sel && editing ? ' acc-orange' : (r.acc ? ' acc-' + r.acc : ''));
+    return '<div class="' + cls + '"><span class="lab">' + r.lab + '</span>' +
+           (r.val ? '<span class="val">' + r.val() + '</span>' : '') + '</div>';
+  }).join('');
+}
+addEventListener('message', function(e){
+  var m = e.data;
+  if(!m || m.channel !== 'hplay') return;
+  if(m.type === 'wheel'){
+    if(editing){ step = Math.max(1, Math.min(10, step + m.dir)); }
+    else { sel = Math.max(0, Math.min(ROWS.length - 1, sel + m.dir)); }   // stops at the ends, like Hplay
+    draw();
+  } else if(m.type === 'select'){
+    var r = ROWS[sel];
+    if(r.edit) editing = !editing; else r.act();
+    draw();
+  }
+});
+draw();
+</script>
+</body>
+</html>
